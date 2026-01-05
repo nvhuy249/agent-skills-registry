@@ -12,6 +12,12 @@ type NavBarProps = {
   rightSlot?: ReactNode;
 };
 
+const baseLinkClasses =
+  "rounded-md px-3 py-2 text-sm font-medium transition-colors";
+const activeLinkClasses = "bg-slate-800 text-white";
+const inactiveLinkClasses =
+  "text-slate-300 hover:text-white hover:bg-slate-800/70";
+
 export default function NavBar({
   brand = "Agent Skills Registry",
   links,
@@ -19,7 +25,10 @@ export default function NavBar({
 }: NavBarProps) {
   const brandContent =
     typeof brand === "string" ? (
-      <NavLink to="/" className="navbar__brand-link">
+      <NavLink
+        to="/"
+        className="text-lg font-semibold tracking-tight text-white no-underline"
+      >
         {brand}
       </NavLink>
     ) : (
@@ -27,25 +36,28 @@ export default function NavBar({
     );
 
   return (
-    <header className="navbar">
-      <div className="navbar__inner">
-        <div className="navbar__brand">{brandContent}</div>
-        <nav className="navbar__links" aria-label="Main navigation">
+    <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
+        <div className="shrink-0">{brandContent}</div>
+        <nav className="flex items-center gap-2" aria-label="Main navigation">
           {links.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               className={({ isActive }) =>
-                ["navbar__link", isActive ? "navbar__link--active" : ""]
-                  .filter(Boolean)
-                  .join(" ")
+                [
+                  baseLinkClasses,
+                  isActive ? activeLinkClasses : inactiveLinkClasses,
+                ].join(" ")
               }
             >
               {link.label}
             </NavLink>
           ))}
         </nav>
-        {rightSlot ? <div className="navbar__actions">{rightSlot}</div> : null}
+        {rightSlot ? (
+          <div className="flex items-center gap-2">{rightSlot}</div>
+        ) : null}
       </div>
     </header>
   );
