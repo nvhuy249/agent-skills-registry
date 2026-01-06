@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { login } from "../api/auth";
+import { signup } from "../api/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -8,6 +11,41 @@ export default function Login() {
     password: "",
     confirm: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  async function handlesubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (mode === "login") {
+      const res = await login(loginForm.email, loginForm.password);
+      if ("error" in res) {
+        setError(res.error);
+      } else {
+        // Redirect or update UI on successful login
+        localStorage.setItem("userId", String(res.userId));
+        navigate("/skills");
+      }
+    } else {
+      if (signupForm.password !== signupForm.confirm) {
+        setError("Passwords do not match");
+        setLoading(false);
+        return;
+      }
+      const res = await signup(signupForm.email, signupForm.password);
+      if ("error" in res) {
+        setError(res.error);
+      } else {
+        // Redirect or update UI on successful signup
+        localStorage.setItem("userId", String(res.userId));
+        navigate("/skills");
+      }
+    }
+    setLoading(false);
+  }
 
   const inputClass =
     "w-full rounded-lg border border-slate-700 bg-slate-800/70 px-4 py-3 text-slate-100 placeholder-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30";
@@ -78,9 +116,11 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-3">
-                  <button className={primaryButton} type="submit">
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+                  <button className={primaryButton} type="submit" disabled={loading} onClick={handlesubmit}>
                     Log in
                   </button>
+                  {loading && <p className="text-sm text-slate-400">Logging In...</p>}
                   <button
                     className={switchButton}
                     type="button"
@@ -163,9 +203,11 @@ export default function Login() {
                 </div>
 
                 <div className="space-y-3">
-                  <button className={primaryButton} type="submit">
+                  {error && <p className="text-sm text-red-500">{error}</p>}
+                  <button className={primaryButton} type="submit" disabled={loading} onClick={handlesubmit}>
                     Create account
                   </button>
+                  {loading && <p className="text-sm text-slate-400">Signing Up...</p>}
                   <button
                     className={switchButton}
                     type="button"
