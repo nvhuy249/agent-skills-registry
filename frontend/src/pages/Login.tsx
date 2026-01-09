@@ -27,6 +27,7 @@ export default function Login() {
       } else {
         // Redirect or update UI on successful login
         localStorage.setItem("userId", String(res.userId));
+        localStorage.setItem("username", loginForm.email);
         navigate("/skills");
       }
     } else {
@@ -41,6 +42,7 @@ export default function Login() {
       } else {
         // Redirect or update UI on successful signup
         localStorage.setItem("userId", String(res.userId));
+        localStorage.setItem("username", signupForm.email);
         navigate("/skills");
       }
     }
@@ -73,13 +75,7 @@ export default function Login() {
                 Access your skills and continue where you left off.
               </p>
 
-              <form
-                className="mt-8 space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  console.log("login", loginForm);
-                }}
-              >
+              <form className="mt-8 space-y-4" onSubmit={handlesubmit}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-200" htmlFor="login-email">
                     Email
@@ -117,7 +113,7 @@ export default function Login() {
 
                 <div className="space-y-3">
                   {error && <p className="text-sm text-red-500">{error}</p>}
-                  <button className={primaryButton} type="submit" disabled={loading} onClick={handlesubmit}>
+                  <button className={primaryButton} type="submit" disabled={loading}>
                     Log in
                   </button>
                   {loading && <p className="text-sm text-slate-400">Logging In...</p>}
@@ -143,13 +139,7 @@ export default function Login() {
                 Start publishing and saving skills with a free account.
               </p>
 
-              <form
-                className="mt-8 space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  console.log("signup", signupForm);
-                }}
-              >
+              <form className="mt-8 space-y-4" onSubmit={handlesubmit}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-200" htmlFor="signup-email">
                     Email
@@ -204,7 +194,7 @@ export default function Login() {
 
                 <div className="space-y-3">
                   {error && <p className="text-sm text-red-500">{error}</p>}
-                  <button className={primaryButton} type="submit" disabled={loading} onClick={handlesubmit}>
+                  <button className={primaryButton} type="submit" disabled={loading}>
                     Create account
                   </button>
                   {loading && <p className="text-sm text-slate-400">Signing Up...</p>}

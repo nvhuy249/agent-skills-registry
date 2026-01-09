@@ -22,10 +22,11 @@ router.post("/signup", async (req, res) => {
   }
   const passwordHash = await bcrypt.hash(password, 10);
 
-  db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)")
+  const result = db.prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)")
     .run(username, passwordHash);
+  const userId = Number(result.lastInsertRowid);
 
-  return res.status(201).json({ message: "User created successfully" });
+  return res.status(201).json({ message: "User created successfully", userId });
 })
 
 // User login

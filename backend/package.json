@@ -15,7 +15,8 @@
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.5.0",
     "cors": "^2.8.5",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "gray-matter": "^4.0.3"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
