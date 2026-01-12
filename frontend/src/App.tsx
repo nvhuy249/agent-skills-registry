@@ -6,6 +6,7 @@ import "./App.css";
 const navLinks: NavItem[] = [
   { label: "Home", to: "/" },
   { label: "Login", to: "/login" },
+  { label: "Public Skills", to: "/public" },
   { label: "My Skills", to: "/skills" },
 ];
 

@@ -5,8 +5,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
 import MySkills from "./pages/MySkills";
-// import PublicSkills from "./pages/PublicSkills";
-// import UploadSkill from "./pages/UploadSkill";
+import PublicSkills from "./pages/PublicSkills";
+import EditSkill from "./pages/EditSkill";
 
 export const router = createBrowserRouter([
   {
@@ -27,9 +27,9 @@ export const router = createBrowserRouter([
           Manage and browse skills. Use the navbar to navigate.
         </p>
       </div>   },
+      { path: "/public", element: <PublicSkills /> },
       { path: "/skills", element: <ProtectedRoute><MySkills /></ProtectedRoute> },
-      // { path: "/public", element: <ProtectedRoute><PublicSkills /></ProtectedRoute> },
-      // { path: "/upload", element: <ProtectedRoute><UploadSkill /></ProtectedRoute> },
+      { path: "/skills/:id/edit", element: <ProtectedRoute><EditSkill /></ProtectedRoute> },
     ],
   },
 ]);

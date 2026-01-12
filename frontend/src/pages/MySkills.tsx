@@ -1,32 +1,31 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import SkillCard, { type Skill } from "../components/SkillCard";
 import { useNavigate } from "react-router-dom";
-import { loadSkills } from "../api/skills";
-import { uploadSkill } from "../api/skills";
+import { loadSkills, uploadSkill, deleteSkill, changePrivacy } from "../api/skills";
 
 export default function MySkills() {
   const navigate = useNavigate();
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const editInputRef = useRef<HTMLInputElement>(null);
-  const [editTarget, setEditTarget] = useState<Skill | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
 
+  const refreshSkills = useCallback(async () => {
+    const showSpinner = skills.length === 0;
+    if (showSpinner) setLoading(true);
+    try {
+      const data = await loadSkills();
+      setSkills(data);
+    } catch (err: any) {
+      setError(err.message || "Failed to load skills");
+    } finally {
+      if (showSpinner) setLoading(false);
+    }
+  }, [skills.length]);
+
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    loadSkills()
-      .then((data) => {
-        if (active) setSkills(data);})
-      .catch((err) => {
-        if (active) setError(err.message);})
-      .finally(() => {
-        if (active) setLoading(false);});
-    return () => {
-      active = false;
-    };
-  }, []);
+    refreshSkills();
+  }, [refreshSkills]);
 
   const skillsPrivate = skills.filter((skill) => !skill.is_public);
   const skillsPublic = skills.filter((skill) => skill.is_public);
@@ -38,8 +37,7 @@ export default function MySkills() {
   }
 
   function openEditPicker(skill: Skill) {
-    setEditTarget(skill);
-    editInputRef.current?.click();
+    navigate(`/skills/${skill.id}/edit`);
   }
 
   async function handleUploadChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -48,24 +46,63 @@ export default function MySkills() {
       event.target.value = "";
       return;
     }
-    if (file) {
-      console.log("Upload skill file:", file.name);
-    }
     const markdown = await file.text();
-    await uploadSkill(markdown);
+    const tempId = crypto.randomUUID();
+    const optimistic: Skill = {
+      id: tempId as unknown as number,
+      name: file.name,
+      description: "",
+      updatedAt: new Date().toISOString(),
+      is_public: false,
+    };
+    setSkills((prev) => [optimistic, ...prev]);
+
+    try {
+      await uploadSkill(markdown);
+      await refreshSkills();
+    } catch (err) {
+      setSkills((prev) => prev.filter((skill) => skill.id !== (tempId as unknown as number)));
+      setError((err as Error).message || "Failed to upload skill");
+    } finally {
     event.target.value = "";
+    }
   }
 
-  function handleEditChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (file && editTarget) {
-      console.log("Edit skill", editTarget.id, "with file", file.name);
+  async function handleDeleteChange(skill: Skill) {
+    const confirm = window.confirm(`Are you sure you want to delete the skill "${skill.name}"? This action cannot be undone.`);
+    if (!confirm) return;
+    
+    const prev = skills;
+    setSkills((prev) => (prev.filter((s) => s.id !== skill.id)));
+    try {
+      await deleteSkill(skill.id);
+    } catch (err) {
+      setSkills(prev);
+      setError((err as Error).message || "Failed to delete skill");
     }
-    setEditTarget(null);
-    event.target.value = "";
+  }
+
+  async function onChangePrivacy(skill: Skill) {
+    const privacyAction = skill.is_public ? "private" : "public";
+    const confirm = window.confirm(`Are you sure you want to make the skill "${skill.name}" ${privacyAction}?`);
+    if (!confirm) return;
+    const prev = skills;
+    setSkills((prev) => 
+      prev.map((s) => 
+        s.id === skill.id ? { ...s, is_public: !s.is_public } : s
+      )
+    );
+    try {
+      await changePrivacy(skill.id, !skill.is_public);
+    } catch (err) {
+      setSkills(prev);
+      setError((err as Error).message || "Failed to change privacy");
+    }
   }
 
   function handleLogout() {
+    const confirm = window.confirm("Are you sure you want to log out?");
+    if (!confirm) return;
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
     navigate("/login", { replace: true });
@@ -105,13 +142,6 @@ export default function MySkills() {
           className="hidden"
           onChange={handleUploadChange}
         />
-        <input
-          ref={editInputRef}
-          type="file"
-          accept=".md,.txt,.pdf,.json"
-          className="hidden"
-          onChange={handleEditChange}
-        />
       </section>
 
       {error && (
@@ -133,14 +163,16 @@ export default function MySkills() {
               subtitle="Only you can view these skills."
               skills={skillsPrivate}
               onEdit={openEditPicker}
-              onDelete={(skill) => console.log("Delete skill", skill.id)}
+              onDelete={handleDeleteChange}
+              onChangePrivacy={onChangePrivacy}
             />
             <SkillsColumn
               title="Public Skills"
               subtitle="Visible to everyone."
               skills={skillsPublic}
               onEdit={openEditPicker}
-              onDelete={(skill) => console.log("Delete skill", skill.id)}
+              onDelete={handleDeleteChange}
+              onChangePrivacy={onChangePrivacy}
             />
           </>
         )}
@@ -155,9 +187,10 @@ type SkillsColumnProps = {
   skills: Skill[];
   onEdit: (skill: Skill) => void;
   onDelete: (skill: Skill) => void;
+  onChangePrivacy?: (skill: Skill) => void;
 };
 
-function SkillsColumn({ title, subtitle, skills, onEdit, onDelete }: SkillsColumnProps) {
+function SkillsColumn({ title, subtitle, skills, onEdit, onDelete, onChangePrivacy }: SkillsColumnProps) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-sm shadow-slate-900/30">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -193,6 +226,7 @@ function SkillsColumn({ title, subtitle, skills, onEdit, onDelete }: SkillsColum
               skill={skill}
               onEdit={onEdit}
               onDelete={onDelete}
+              onChangePrivacy={onChangePrivacy}
             />
           ))
         )}

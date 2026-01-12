@@ -18,6 +18,7 @@ db.prepare(`
     name TEXT NOT NULL,
     description TEXT,
     content TEXT NOT NULL,
+    allowed_tools TEXT NOT NULL DEFAULT '[]',
     is_public BOOLEAN DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,

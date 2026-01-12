@@ -4,15 +4,17 @@ export type Skill = {
   description?: string;
   updatedAt: string;
   is_public?: boolean;
+  allowedTools?: string[];
 };
 
 type Props = {
   skill: Skill;
   onEdit?: (skill: Skill) => void;
   onDelete?: (skill: Skill) => void;
+  onChangePrivacy?: (skill: Skill) => void;
 };
 
-export default function SkillCard({ skill, onEdit, onDelete }: Props) {
+export default function SkillCard({ skill, onEdit, onDelete, onChangePrivacy }: Props) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm shadow-slate-900/40">
       <div className="flex items-start justify-between gap-2">
@@ -49,6 +51,15 @@ export default function SkillCard({ skill, onEdit, onDelete }: Props) {
             className="rounded-lg border border-rose-500/60 px-3 py-2 text-rose-200 transition hover:bg-rose-500/10"
           >
             Delete
+          </button>
+        ) : null}
+        {onChangePrivacy ? (
+          <button
+            type="button"
+            onClick={() => onChangePrivacy(skill)}
+            className="rounded-lg border border-slate-700 px-3 py-2 text-slate-100 transition hover:border-indigo-400 hover:text-indigo-200"
+          >
+            {skill.is_public ? "Make Private" : "Make Public"}
           </button>
         ) : null}
       </div>
