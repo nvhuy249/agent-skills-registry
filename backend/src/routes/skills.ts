@@ -194,6 +194,52 @@ router.get("/showskill", (req, res) => {
     markdown });
 });
 
+// Show a public skill
+router.get("/showpublicskill", (req, res) => {
+  const skillId = Number(req.query.skillId as string | undefined);
+  if (!skillId) {
+    return res.status(400).json({ error: "Missing skillId" });
+  }
+  const skill = db
+    .prepare(`SELECT 
+                skills.name,
+                skills.description,
+                skills.allowed_tools,
+                skills.content,
+                skills.updated_at as updatedAt,
+                skills.is_public,
+                users.username AS owner
+              FROM skills
+              JOIN users ON skills.user_id = users.id
+              WHERE skills.id = ? AND skills.is_public = 1`).get(skillId) as (markdownFile & { owner: string }) | undefined;
+  if (!skill) {
+    return res.status(404).json({ error: "Skill not found or not public" });
+  }
+  const file = {
+    data: {
+      name: skill.name,
+      description: skill.description,
+      "allowed_tools": parseAllowedTools(skill.allowed_tools),
+    },
+    content: skill.content,
+  };
+  const markdown = matter.stringify(file.content, {
+    name: file.data.name,
+    description: file.data.description,
+    "allowed_tools": parseAllowedTools(file.data["allowed_tools"]),
+  });
+  return res.status(200).json({
+    name: skill.name,
+    description: skill.description,
+    allowedTools: parseAllowedTools(skill.allowed_tools),
+    updatedAt: skill.updatedAt,
+    is_public: skill.is_public,
+    owner: skill.owner,
+    markdown,
+  });
+});
+    
+
 // Update an existing skill
 router.post("/editskill", (req, res) => {
   const userId =
@@ -242,6 +288,35 @@ router.post("/changeprivacy", (req, res) => {
   db.prepare("UPDATE skills SET is_public = ? WHERE id = ? AND user_id = ?")
     .run(newPrivacy ? 1 : 0, skillId, userId);
   return res.status(200).json({ message: "Skill privacy updated successfully" });
+});
+
+// Download a skill
+router.get("/downloadskill", (req, res) => {
+  const { skillId } = req.query as { skillId: string };
+  if (!skillId) {
+    return res.status(400).json({ error: "Missing skillId" });
+  }
+  const skill = db.prepare("SELECT name, description, allowed_tools, content FROM skills WHERE id = ? AND is_public = 1").get(skillId) as markdownFile | undefined;
+  if (!skill) {
+    return res.status(404).json({ error: "Skill not found or not public" });
+  }
+  const file = {
+    data: {
+      name: skill.name,
+      description: skill.description,
+      "allowed_tools": parseAllowedTools(skill.allowed_tools),
+    },
+    content: skill.content,
+  };
+
+  const markdown = matter.stringify(file.content, {
+    name: file.data.name,
+    description: file.data.description,
+    "allowed_tools": parseAllowedTools(file.data["allowed_tools"]),
+  });
+  res.setHeader("Content-Disposition", `attachment; filename="${skill.name}.md"`);
+  res.setHeader("Content-Type", "text/markdown");
+  return res.status(200).send(markdown);
 });
 
 export default router;

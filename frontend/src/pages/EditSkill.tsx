@@ -19,6 +19,7 @@ export default function EditSkill() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [is_public, setIsPublic] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -52,19 +53,19 @@ export default function EditSkill() {
   const isDirty = useMemo(() => editorValue !== lastSavedContent, [editorValue, lastSavedContent]);
 
   useEffect(() => {
-    if (!skillId || loading) return;
+    if (!skillId || loading || !autoSaveEnabled) return;
     localStorage.setItem(draftKey(skillId), editorValue);
-  }, [editorValue, skillId, loading]);
+  }, [editorValue, skillId, loading, autoSaveEnabled]);
 
   useEffect(() => {
-    if (!isDirty) return;
+    if (!isDirty || autoSaveEnabled) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
+  }, [isDirty, autoSaveEnabled]);
 
   const save = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -87,20 +88,22 @@ export default function EditSkill() {
   );
 
   useEffect(() => {
-    if (!isDirty || loading) return;
+    if (!autoSaveEnabled || !isDirty || loading) return;
     const t = setTimeout(() => {
       void save({ silent: true });
     }, 1200);
     return () => clearTimeout(t);
-  }, [isDirty, save, loading]);
+  }, [autoSaveEnabled, isDirty, save, loading]);
 
   if (loading) return <div className="text-slate-200">Loading…</div>;
   if (error && !lastSavedContent) return <div className="text-rose-200">{error}</div>;
 
   const onBack = () => {
-    if (!isDirty || window.confirm("Discard unsaved changes?")) {
-      navigate(-1);
+    if (!autoSaveEnabled && isDirty) {
+      const ok = window.confirm("You have unsaved changes. Save before leaving?");
+      if (!ok) return;
     }
+    navigate(-1);
   };
 
   const onReset = () => {
@@ -139,6 +142,20 @@ export default function EditSkill() {
             disabled={status === "saving"}
             onClick={onPrivacyChange}>
             {is_public ? "Make Private" : "Make Public"}
+          </button>
+        </div>
+        <div>
+          <button
+            type="button"
+            className={`mr-4 rounded-md border border-slate-700 px-3 py-2 text-sm disabled:opacity-60 ${
+              autoSaveEnabled
+                ? "text-emerald-300 hover:text-emerald-200 hover:border-emerald-400"
+                : "text-rose-300 hover:text-rose-200 hover:border-rose-400"
+            }`}
+            disabled={status === "saving"}
+            onClick={() => setAutoSaveEnabled((prev) => !prev)}
+          >
+            {autoSaveEnabled ? "Auto-Save On" : "Auto-Save Off"}
           </button>
         </div>
         <div className="flex items-center gap-2">

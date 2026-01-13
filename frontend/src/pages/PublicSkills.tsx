@@ -1,16 +1,20 @@
 import { useEffect, useState, useCallback } from "react";
-import { loadPublicSkills, type Skill } from "../api/skills";
+import { useNavigate } from "react-router-dom";
+import { loadPublicSkills, downloadPublicSkill, type Skill } from "../api/skills";
 import PublicSkillCard from "../components/PublicSkillCard";
 
 export default function PublicSkills() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "name-asc" | "name-desc">("recent");
   const [filter, setFilter] = useState<"all" | "with-description">("all");
   const [page, setPage] = useState(1);
   const pageSize = 8;
+  const navigate = useNavigate();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -58,11 +62,35 @@ export default function PublicSkills() {
   }, [search, sortBy, filter, skills]);
 
   function handleView(skill: Skill) {
-    console.log("View public skill", skill.id);
+    navigate(`/public/${skill.id}/view`, { state: { owner: skill.owner } });
   }
 
-  function handleDownload(skill: Skill) {
-    console.log("Download public skill", skill.id);
+  async function handleDownload(skill: Skill) {
+    setDownloadError(null);
+    setDownloadingId(skill.id);
+    try {
+      const { markdown } = await downloadPublicSkill(skill.id);
+      const safeBase =
+        (skill.name || `skill-${skill.id}`)
+          .replace(/[^a-zA-Z0-9-_ ]/g, "")
+          .trim()
+          .replace(/\s+/g, "-") || `skill-${skill.id}`;
+      const filename = safeBase.toLowerCase().endsWith(".md") ? safeBase : `${safeBase}.md`;
+      const blob = new Blob([markdown], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setDownloadError(err.message || "Failed to download skill");
+    } finally {
+      setDownloadingId(null);
+    }
   }
 
   function handleClone(skill: Skill) {
@@ -113,11 +141,19 @@ export default function PublicSkills() {
             Refresh
           </button>
         </div>
+        {downloadingId ? (
+          <p className="mt-2 text-xs text-slate-400">Downloading skill #{downloadingId}...</p>
+        ) : null}
       </div>
 
       {error ? (
         <div className="rounded-xl border border-rose-500/40 bg-rose-900/20 px-4 py-3 text-sm text-rose-100 shadow">
           {error}
+        </div>
+      ) : null}
+      {downloadError ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-100 shadow">
+          {downloadError}
         </div>
       ) : null}
 

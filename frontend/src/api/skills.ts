@@ -149,6 +149,29 @@ export async function showSkill(skillId: number): Promise<SkillDetail> {
     is_public: data.is_public,
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
+    owner: data.owner,
+  } as SkillDetail;
+}
+
+export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
+  const res = await fetch(`${API_BASE}/showpublicskill?skillId=${skillId}`, {
+    method: "GET",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to show public skill");
+  }
+  const data = await res.json();
+  return {
+    id: skillId,
+    name: data.name,
+    description: data.description,
+    updatedAt: data.updatedAt ?? "",
+    is_public: data.is_public,
+    allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
+    content: data.markdown ?? "",
+    owner: data.owner,
   } as SkillDetail;
 }
 
@@ -192,4 +215,18 @@ export async function changePrivacy(skillId: number, is_public: boolean): Promis
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Failed to change privacy");
   }
+}
+
+export async function downloadPublicSkill(skillId: number): Promise<{ markdown: string; name?: string }> {
+  const res = await fetch(`${API_BASE}/downloadskill?skillId=${skillId}`, {
+    method: "GET",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to download skill");
+  }
+
+  const markdown = await res.text();
+  return { markdown };
 }

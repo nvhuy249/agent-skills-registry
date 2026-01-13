@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import MySkills from "./pages/MySkills";
 import PublicSkills from "./pages/PublicSkills";
 import EditSkill from "./pages/EditSkill";
+import ViewSkill from "./pages/ViewSkill";
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
         </p>
       </div>   },
       { path: "/public", element: <PublicSkills /> },
+      { path: "/public/:id/view", element: <ViewSkill /> },
       { path: "/skills", element: <ProtectedRoute><MySkills /></ProtectedRoute> },
       { path: "/skills/:id/edit", element: <ProtectedRoute><EditSkill /></ProtectedRoute> },
     ],
