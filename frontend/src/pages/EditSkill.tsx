@@ -20,6 +20,8 @@ export default function EditSkill() {
   const [loading, setLoading] = useState(true);
   const [is_public, setIsPublic] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [clonedFromUserId, setClonedFromUserId] = useState<number | null>(null);
+  const [clonedFromUsername, setClonedFromUsername] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -31,6 +33,8 @@ export default function EditSkill() {
         setLastSavedContent(data.content);
         setLastSavedAt(data.updatedAt);
         setIsPublic(!!data.is_public);
+        setClonedFromUserId(data.cloned_from_user_id ?? null);
+        setClonedFromUsername(data.cloned_from_username ?? null);
         const draft = localStorage.getItem(draftKey(skillId));
         if (draft) {
           setEditorValue(draft);
@@ -133,7 +137,12 @@ export default function EditSkill() {
           <p className="text-sm text-slate-400">
             Last saved: {lastSavedAt ? new Date(lastSavedAt).toLocaleString() : "—"}
           </p>
-          {draftLoaded ? <p className="text-xs text-amber-300">Draft loaded from this browser</p> : null}
+            {clonedFromUserId || clonedFromUsername ? (
+              <p className="text-xs text-indigo-200">
+                Cloned from @{clonedFromUsername ?? clonedFromUserId}
+              </p>
+            ) : null}
+            {draftLoaded ? <p className="text-xs text-amber-300">Draft loaded from this browser</p> : null}
         </div>
         <div>
           <button 

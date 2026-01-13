@@ -5,6 +5,8 @@ export type Skill = {
   updatedAt: string;
   is_public?: boolean;
   allowedTools?: string[];
+  cloned_from_user_id?: number | null;
+  cloned_from_username?: string | null;
 };
 
 type Props = {
@@ -22,6 +24,11 @@ export default function SkillCard({ skill, onEdit, onDelete, onChangePrivacy }: 
           <h3 className="text-lg font-semibold text-white">{skill.name}</h3>
           {skill.description ? (
             <p className="mt-1 text-sm text-slate-400">{skill.description}</p>
+          ) : null}
+          {skill.cloned_from_username || skill.cloned_from_user_id ? (
+            <p className="mt-1 text-xs text-indigo-200">
+              Cloned from @{skill.cloned_from_username ?? skill.cloned_from_user_id}
+            </p>
           ) : null}
           <p className="mt-2 text-xs text-slate-500">
             Updated: {skill.updatedAt}

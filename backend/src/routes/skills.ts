@@ -11,6 +11,8 @@ type SkillRow = {
   updatedAt: string;
   is_public?: number | boolean | null;
   allowed_tools?: string | null;
+  cloned_from_user_id?: number | null;
+  cloned_from_username?: string | null;
 };
 
 type markdownFile = {
@@ -20,6 +22,8 @@ type markdownFile = {
   content: string;
   updatedAt: string;
   is_public?: number | boolean | null;
+  cloned_from_user_id?: number | null;
+  cloned_from_username?: string | null;
 };
 
 function parseAllowedTools(raw: unknown): string[] {
@@ -58,7 +62,11 @@ router.get("/loadskills", (req, res) => {
       description,
       updated_at AS updatedAt,
       is_public,
-      allowed_tools
+      allowed_tools,
+      cloned_from_user_id,
+      (
+        SELECT username FROM users WHERE id = cloned_from_user_id
+      ) AS cloned_from_username
     FROM skills
     WHERE user_id = ?
     ORDER BY updated_at DESC
@@ -71,6 +79,8 @@ router.get("/loadskills", (req, res) => {
     updatedAt: row.updatedAt,
     is_public: row.is_public,
     allowedTools: parseAllowedTools(row.allowed_tools),
+    cloned_from_user_id: row.cloned_from_user_id,
+    cloned_from_username: row.cloned_from_username,
   }));
 
   return res.status(200).json({ skills });
@@ -85,7 +95,11 @@ router.get("/publicskills", (_req, res) => {
       skills.description,
       skills.updated_at AS updatedAt,
       skills.allowed_tools,
-      users.username AS owner
+      users.username AS owner,
+      cloned_from_user_id,
+      (
+        SELECT username FROM users WHERE id = cloned_from_user_id
+      ) AS cloned_from_username
     FROM skills
     JOIN users ON skills.user_id = users.id
     WHERE skills.is_public = 1
@@ -98,6 +112,8 @@ router.get("/publicskills", (_req, res) => {
     updatedAt: row.updatedAt,
     allowedTools: parseAllowedTools(row.allowed_tools),
     owner: row.owner,
+    cloned_from_user_id: row.cloned_from_user_id,
+    cloned_from_username: row.cloned_from_username,
   }));
   return res.status(200).json({ skills });
 });
@@ -165,7 +181,24 @@ router.get("/showskill", (req, res) => {
     return res.status(400).json({ error: "Missing skillId" });
   }
 
-  const skill = db.prepare("SELECT name, description, allowed_tools, content, updated_at as updatedAt, is_public FROM skills WHERE id = ? AND user_id = ?").get(skillId, userId) as markdownFile | undefined;
+  const skill = db
+    .prepare(
+      `
+        SELECT 
+          skills.name,
+          skills.description,
+          skills.allowed_tools,
+          skills.content,
+          skills.updated_at as updatedAt,
+          skills.is_public,
+          skills.cloned_from_user_id,
+          source.username as cloned_from_username
+        FROM skills
+        LEFT JOIN users as source ON source.id = skills.cloned_from_user_id
+        WHERE skills.id = ? AND skills.user_id = ?
+      `
+    )
+    .get(skillId, userId) as markdownFile | undefined;
   if (!skill) {
     return res.status(404).json({ error: "Skill not found" });
   }
@@ -191,6 +224,8 @@ router.get("/showskill", (req, res) => {
     allowedTools: parseAllowedTools(skill.allowed_tools),
     updatedAt: skill.updatedAt,
     is_public: skill.is_public, 
+    cloned_from_user_id: skill.cloned_from_user_id,
+    cloned_from_username: skill.cloned_from_username,
     markdown });
 });
 
@@ -208,9 +243,12 @@ router.get("/showpublicskill", (req, res) => {
                 skills.content,
                 skills.updated_at as updatedAt,
                 skills.is_public,
-                users.username AS owner
+                users.username AS owner,
+                skills.cloned_from_user_id,
+                source.username AS cloned_from_username
               FROM skills
               JOIN users ON skills.user_id = users.id
+              LEFT JOIN users AS source ON source.id = skills.cloned_from_user_id
               WHERE skills.id = ? AND skills.is_public = 1`).get(skillId) as (markdownFile & { owner: string }) | undefined;
   if (!skill) {
     return res.status(404).json({ error: "Skill not found or not public" });
@@ -235,10 +273,11 @@ router.get("/showpublicskill", (req, res) => {
     updatedAt: skill.updatedAt,
     is_public: skill.is_public,
     owner: skill.owner,
+    cloned_from_user_id: skill.cloned_from_user_id,
+    cloned_from_username: skill.cloned_from_username,
     markdown,
   });
 });
-    
 
 // Update an existing skill
 router.post("/editskill", (req, res) => {
@@ -317,6 +356,25 @@ router.get("/downloadskill", (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="${skill.name}.md"`);
   res.setHeader("Content-Type", "text/markdown");
   return res.status(200).send(markdown);
+});
+
+// Clone a public skill
+router.post("/clonepublicskill", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.body.userId as string | undefined);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { skillId } = req.body as { skillId: number };
+  if (!skillId) {
+    return res.status(400).json({ error: "Missing skillId" });
+  }
+  const skill = db.prepare("SELECT * FROM skills WHERE id = ? AND is_public = 1").get(skillId) as markdownFile & { user_id: number } | undefined;
+  if (!skill) {
+    return res.status(404).json({ error: "Skill not found or not public" });
+  }
+  db.prepare("INSERT INTO skills (user_id, name, description, content, allowed_tools, cloned_from_user_id) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(userId, skill.name, skill.description, skill.content, JSON.stringify(parseAllowedTools(skill.allowed_tools)), skill.user_id);
+  return res.status(201).json({ message: "Skill cloned successfully" });
 });
 
 export default router;

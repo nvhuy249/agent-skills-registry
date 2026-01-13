@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadPublicSkills, downloadPublicSkill, type Skill } from "../api/skills";
+import { loadPublicSkills, downloadPublicSkill, clonePublicSkill, type Skill } from "../api/skills";
 import PublicSkillCard from "../components/PublicSkillCard";
 
 export default function PublicSkills() {
@@ -8,7 +8,10 @@ export default function PublicSkills() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [cloneMessage, setCloneMessage] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [cloningId, setCloningId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "name-asc" | "name-desc">("recent");
   const [filter, setFilter] = useState<"all" | "with-description">("all");
@@ -93,8 +96,19 @@ export default function PublicSkills() {
     }
   }
 
-  function handleClone(skill: Skill) {
-    console.log("Clone public skill", skill.id);
+  async function handleClone(skill: Skill) {
+    if (cloningId) return;
+    setCloneError(null);
+    setCloneMessage(null);
+    setCloningId(skill.id);
+    try {
+      await clonePublicSkill(skill.id);
+      setCloneMessage(`Cloned "${skill.name}" to your skills. Check My Skills.`);
+    } catch (err: any) {
+      setCloneError(err.message || "Failed to clone skill");
+    } finally {
+      setCloningId(null);
+    }
   }
 
   return (
@@ -154,6 +168,16 @@ export default function PublicSkills() {
       {downloadError ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-100 shadow">
           {downloadError}
+        </div>
+      ) : null}
+      {cloneError ? (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-900/20 px-4 py-3 text-sm text-rose-100 shadow">
+          {cloneError}
+        </div>
+      ) : null}
+      {cloneMessage ? (
+        <div className="rounded-xl border border-emerald-500/40 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-100 shadow">
+          {cloneMessage}
         </div>
       ) : null}
 

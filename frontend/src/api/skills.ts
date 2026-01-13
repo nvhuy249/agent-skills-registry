@@ -8,6 +8,8 @@ export type Skill = {
   is_public?: boolean;
   allowedTools?: string[];
   owner?: string;
+  cloned_from_user_id?: number | null;
+  cloned_from_username?: string | null;
 };
 
 export type SkillDetail = Skill & {
@@ -59,6 +61,8 @@ export async function loadSkills(): Promise<Skill[]> {
   return skills.map((skill: any) => ({
     ...skill,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
+    cloned_from_user_id: skill?.cloned_from_user_id ?? null,
+    cloned_from_username: skill?.cloned_from_username ?? null,
   })) as Skill[];
 }
 
@@ -150,6 +154,8 @@ export async function showSkill(skillId: number): Promise<SkillDetail> {
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
     owner: data.owner,
+    cloned_from_user_id: data?.cloned_from_user_id ?? null,
+    cloned_from_username: data?.cloned_from_username ?? null,
   } as SkillDetail;
 }
 
@@ -172,6 +178,8 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
     owner: data.owner,
+    cloned_from_user_id: data?.cloned_from_user_id ?? null,
+    cloned_from_username: data?.cloned_from_username ?? null,
   } as SkillDetail;
 }
 
@@ -229,4 +237,25 @@ export async function downloadPublicSkill(skillId: number): Promise<{ markdown: 
 
   const markdown = await res.text();
   return { markdown };
+}
+
+export async function clonePublicSkill(skillId: number): Promise<void> {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+    throw new Error("Not logged in: missing userId");
+  }
+  const res = await fetch(`${API_BASE}/clonepublicskill`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "user-id": userId,
+    },
+    body: JSON.stringify({ skillId }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to clone skill");
+  }
 }

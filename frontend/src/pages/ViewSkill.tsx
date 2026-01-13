@@ -17,6 +17,8 @@ export default function ViewSkill() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | undefined>(state?.owner);
+  const [clonedFromUserId, setClonedFromUserId] = useState<number | null>(null);
+  const [clonedFromUsername, setClonedFromUsername] = useState<string | null>(null);
 
   useEffect(() => {
     if (!skillId) {
@@ -35,6 +37,8 @@ export default function ViewSkill() {
         setIsPublic(Boolean(data.is_public ?? true));
         setAllowedTools(data.allowedTools ?? []);
         setOwner((prev) => prev ?? data.owner);
+        setClonedFromUserId(data.cloned_from_user_id ?? null);
+        setClonedFromUsername(data.cloned_from_username ?? null);
       } catch (err: any) {
         if (!mounted) return;
         setError(err.message || "Failed to load skill");
@@ -64,6 +68,11 @@ export default function ViewSkill() {
           {owner ? (
             <span className="rounded-full border border-indigo-500/50 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-100">
               Owner: {owner}
+            </span>
+          ) : null}
+          {clonedFromUserId || clonedFromUsername ? (
+            <span className="rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
+              Cloned from @{clonedFromUsername ?? clonedFromUserId}
             </span>
           ) : null}
           <span

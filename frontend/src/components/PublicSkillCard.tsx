@@ -36,11 +36,18 @@ export default function PublicSkillCard({ skill, onView, onDownload, onClone }: 
           <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold uppercase text-slate-200">
             Owner
           </span>
-          {skill.owner ? (
-            <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200 border border-indigo-500/30">
-              {skill.owner}
-            </span>
-          ) : null}
+          <div className="flex-row-1 flex-row items-end gap-2 space-y-4">
+            {skill.owner ? (
+              <span className="flex rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200 border border-indigo-500/30">
+                {skill.owner}
+              </span>
+            ) : null}
+            {skill.cloned_from_user_id || skill.cloned_from_username ? (
+              <span className="flex-row-2 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
+                Cloned from @{skill.cloned_from_username ?? skill.cloned_from_user_id}
+              </span>
+            ) : null}
+          </div>
           <div className="relative" ref={menuRef}>
             <button
               type="button"
