@@ -72,14 +72,17 @@ export default function PublicSkills() {
   const start = (currentPage - 1) * pageSize;
   const visible = filtered.slice(start, start + pageSize);
 
-  const searchTagResults = useCallback(async () => {
+  const searchTagResults = useCallback(() => {
     const tag = searchTag.trim().toLowerCase();
-    if (!tag) {
-      refresh();
-      return;
-    }
-    setLoading(true);
     setError(null);
+
+    if (!tag) {
+      setLoading(true);
+      refresh().finally(() => setLoading(false));
+      return () => {};
+    }
+
+    setLoading(true);
     const t = setTimeout(async () => {
       try {
         const data = await searchbytag(tag);
@@ -94,9 +97,29 @@ export default function PublicSkills() {
   }, [searchTag, refresh]);
 
   useEffect(() => {
-    searchTagResults();
+    const tag = searchTag.trim().toLowerCase();
     setPage(1);
-  }, [searchTag, searchTagResults]);
+    setError(null);
+
+    if (!tag) {
+      setLoading(true);
+      refresh().finally(() => setLoading(false));
+      return;
+    }
+
+    setLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const data = await searchbytag(tag);
+        setSkills(data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load public skills by tag");
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTag, refresh]);
 
   useEffect(() => {
     setPage(1);
