@@ -11,6 +11,7 @@ export type Skill = {
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
   tag_list?: string[] | null;
+  download_count?: number;
 };
 
 export type SkillDetail = Skill & {
@@ -61,6 +62,7 @@ export async function loadSkills(): Promise<Skill[]> {
   const skills = Array.isArray(data.skills) ? data.skills : [];
   return skills.map((skill: any) => ({
     ...skill,
+    download_count: skill.download_count,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
@@ -83,6 +85,7 @@ export async function loadPublicSkills(): Promise<Skill[]> {
   const skills = Array.isArray(data.skills) ? data.skills : [];
   return skills.map((skill: any) => ({
     ...skill,
+    download_count: skill.download_count,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
@@ -156,6 +159,7 @@ export async function showSkill(skillId: number): Promise<SkillDetail> {
     description: data.description,
     updatedAt: data.updatedAt ?? "",
     is_public: data.is_public,
+    download_count: data.download_count,
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
     owner: data.owner,
@@ -180,6 +184,7 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
     description: data.description,
     updatedAt: data.updatedAt ?? "",
     is_public: data.is_public,
+    download_count: data.download_count,
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
     owner: data.owner,

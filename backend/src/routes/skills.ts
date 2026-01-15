@@ -14,6 +14,7 @@ type SkillRow = {
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
   tag_list?: string[] | null;
+  download_count?: number;
 };
 
 type markdownFile = {
@@ -25,6 +26,7 @@ type markdownFile = {
   is_public?: number | boolean | null;
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
+  download_count: number;
 };
 
 type tagRow = {
@@ -73,7 +75,8 @@ router.get("/loadskills", (req, res) => {
       (
         SELECT username FROM users WHERE id = skills.cloned_from_user_id
       ) AS cloned_from_username,
-      GROUP_CONCAT(tags.name) AS tag_list
+      GROUP_CONCAT(tags.name) AS tag_list,
+      skills.download_count
     FROM skills
     LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
     LEFT JOIN tags ON skill_tags.tag_id = tags.id
@@ -97,6 +100,7 @@ router.get("/loadskills", (req, res) => {
           .map((t) => t.trim())
           .filter(Boolean)
       : [],
+    download_count: row.download_count,
   }));
 
   return res.status(200).json({ skills });
@@ -116,7 +120,8 @@ router.get("/publicskills", (_req, res) => {
       (
         SELECT username FROM users WHERE id = cloned_from_user_id
       ) AS cloned_from_username,
-      GROUP_CONCAT(tags.name) AS tag_list
+      GROUP_CONCAT(tags.name) AS tag_list,
+      skills.download_count
     FROM skills
     JOIN users ON skills.user_id = users.id
     LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
@@ -140,6 +145,7 @@ router.get("/publicskills", (_req, res) => {
           .map((t) => t.trim())
           .filter(Boolean)
       : [],
+    download_count: row.download_count,
   }));
   return res.status(200).json({ skills });
 });
@@ -362,7 +368,7 @@ router.get("/downloadskill", (req, res) => {
   if (!skillId) {
     return res.status(400).json({ error: "Missing skillId" });
   }
-  const skill = db.prepare("SELECT name, description, allowed_tools, content FROM skills WHERE id = ? AND is_public = 1").get(skillId) as markdownFile | undefined;
+  const skill = db.prepare("SELECT name, description, allowed_tools, content, download_count FROM skills WHERE id = ? AND is_public = 1").get(skillId) as markdownFile | undefined;
   if (!skill) {
     return res.status(404).json({ error: "Skill not found or not public" });
   }
@@ -374,6 +380,9 @@ router.get("/downloadskill", (req, res) => {
     },
     content: skill.content,
   };
+
+  const download_count = skill.download_count + 1;
+  db.prepare("UPDATE skills SET download_count = ? WHERE id = ?").run(download_count, skillId);
 
   const markdown = matter.stringify(file.content, {
     name: file.data.name,

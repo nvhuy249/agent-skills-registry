@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, use } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadPublicSkills, downloadPublicSkill, clonePublicSkill, searchbytag, type Skill } from "../api/skills";
 import PublicSkillCard from "../components/PublicSkillCard";
@@ -27,7 +27,6 @@ export default function PublicSkills() {
     try {
       const data = await loadPublicSkills();
       setSkills(data);
-      setTags(Array.from(new Set(data.flatMap((skill) => skill.tag_list ?? []))));
     } catch (err: any) {
       setError(err.message || "Failed to load public skills");
     } finally {
@@ -38,6 +37,16 @@ export default function PublicSkills() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const nextTags = Array.from(new Set(skills.flatMap((skill) => skill.tag_list ?? [])));
+    setTags((prev) => {
+      if (prev.length === nextTags.length && prev.every((tag, idx) => tag === nextTags[idx])) {
+        return prev;
+      }
+      return nextTags;
+    });
+  }, [skills]);
 
   const filtered = skills
     .filter((skill) =>
@@ -86,6 +95,7 @@ export default function PublicSkills() {
 
   useEffect(() => {
     searchTagResults();
+    setPage(1);
   }, [searchTag, searchTagResults]);
 
   useEffect(() => {
@@ -117,6 +127,13 @@ export default function PublicSkills() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      setSkills((prev) =>
+        prev.map((s) =>
+          s.id === skill.id
+            ? { ...s, download_count: (s.download_count ?? 0) + 1 }
+            : s
+        )
+      );
     } catch (err: any) {
       setDownloadError(err.message || "Failed to download skill");
     } finally {
@@ -190,6 +207,21 @@ export default function PublicSkills() {
             Refresh
           </button>
         </div>
+        {tags.length ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="text-slate-500">Tags:</span>
+            {tags.slice(0, 10).map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setSearchTag(tag)}
+                className="rounded-full border border-slate-700 px-2 py-1 text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {downloadingId ? (
           <p className="mt-2 text-xs text-slate-400">Downloading skill #{downloadingId}...</p>
         ) : null}

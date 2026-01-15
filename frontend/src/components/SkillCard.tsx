@@ -1,4 +1,4 @@
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type Skill = {
   id: number;
@@ -10,6 +10,7 @@ export type Skill = {
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
   tag_list?: string[] | null;
+  download_count?: number;
 };
 
 type Props = {
@@ -27,6 +28,7 @@ export default function SkillCard({ skill, onEdit, onDelete, onChangePrivacy, on
   const [adding, setAdding] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const tags = skill.tag_list ?? [];
+  const downloadCount = typeof skill.download_count === "number" ? skill.download_count : 0;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -68,9 +70,26 @@ export default function SkillCard({ skill, onEdit, onDelete, onChangePrivacy, on
               Cloned from @{skill.cloned_from_username ?? skill.cloned_from_user_id}
             </p>
           ) : null}
-          <p className="mt-2 text-xs text-slate-500">
-            Updated: {skill.updatedAt}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span>Updated: {skill.updatedAt}</span>
+            {skill.is_public ? (
+              <span className="flex items-center gap-1 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] font-semibold text-indigo-100">
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 3a.75.75 0 0 1 .75.75v7.19l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 1.06-1.06l2.47 2.47V3.75A.75.75 0 0 1 10 3Zm-5 11.25a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <span>{downloadCount}</span>
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold uppercase text-slate-300">

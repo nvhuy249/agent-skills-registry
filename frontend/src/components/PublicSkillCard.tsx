@@ -14,6 +14,7 @@ export default function PublicSkillCard({ skill, onView, onDownload, onClone }: 
   const tagsRef = useRef<HTMLDivElement>(null);
   const tags = skill.tag_list ?? [];
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const downloadCount = typeof skill.download_count === "number" ? skill.download_count : 0;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -33,7 +34,24 @@ export default function PublicSkillCard({ skill, onView, onDownload, onClone }: 
           {skill.description ? (
             <p className="text-sm text-slate-300/90">{skill.description}</p>
           ) : null}
-          <p className="text-xs text-slate-500">Updated: {skill.updatedAt}</p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span>Updated: {skill.updatedAt}</span>
+            <span className="flex items-center gap-1 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] font-semibold text-indigo-100">
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-3.5 w-3.5"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 3a.75.75 0 0 1 .75.75v7.19l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3.75 3.75a.75.75 0 0 1-1.06 0l-3.75-3.75a.75.75 0 0 1 1.06-1.06l2.47 2.47V3.75A.75.75 0 0 1 10 3Zm-5 11.25a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{downloadCount}</span>
+            </span>
+          </div>
         </div>
         <div className="flex items-start gap-2">
           <div
