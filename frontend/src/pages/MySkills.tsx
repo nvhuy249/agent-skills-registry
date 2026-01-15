@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import SkillCard, { type Skill } from "../components/SkillCard";
 import { useNavigate } from "react-router-dom";
-import { loadSkills, uploadSkill, deleteSkill, changePrivacy } from "../api/skills";
+import { loadSkills, uploadSkill, deleteSkill, changePrivacy, addTag } from "../api/skills";
 
 export default function MySkills() {
   const navigate = useNavigate();
@@ -9,6 +9,11 @@ export default function MySkills() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [searchNamePrivate, setSearchNamePrivate] = useState("");
+  const [searchTagPrivate, setSearchTagPrivate] = useState("");
+  const [searchNamePublic, setSearchNamePublic] = useState("");
+  const [searchTagPublic, setSearchTagPublic] = useState("");
 
   const refreshSkills = useCallback(async () => {
     const showSpinner = skills.length === 0;
@@ -16,6 +21,7 @@ export default function MySkills() {
     try {
       const data = await loadSkills();
       setSkills(data);
+      setTags(Array.from(new Set(data.flatMap((skill) => skill.tag_list ?? []))));
     } catch (err: any) {
       setError(err.message || "Failed to load skills");
     } finally {
@@ -29,6 +35,20 @@ export default function MySkills() {
 
   const skillsPrivate = skills.filter((skill) => !skill.is_public);
   const skillsPublic = skills.filter((skill) => skill.is_public);
+
+  // Search by name and tag now are handled on frontend for simplicity
+
+  const filterByName = (list: Skill[], query: string) =>
+    list.filter((s) => s.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const filterByTag = (list: Skill[], query: string) => {
+    const term = query.trim().toLowerCase();
+    if (!term) return list;
+    return list.filter((s) => (s.tag_list ?? []).some((t) => t.toLowerCase().includes(term)));
+  };
+
+  const filteredPrivate = filterByTag(filterByName(skillsPrivate, searchNamePrivate), searchTagPrivate);
+  const filteredPublic = filterByTag(filterByName(skillsPublic, searchNamePublic), searchTagPublic);
 
   const username = localStorage.getItem("username");
 
@@ -100,6 +120,25 @@ export default function MySkills() {
     }
   }
 
+  async function handleAddTag(skillId: number, tagName: string) {
+    const tag = tagName.trim();
+    if (!tag) return;
+    const prev = skills;
+    setSkills((p) =>
+      p.map((s) =>
+        s.id === skillId
+          ? { ...s, tag_list: Array.from(new Set([...(s.tag_list ?? []), tag])) }
+          : s
+      )
+    );
+    try {
+      await addTag(skillId, tag);
+    } catch (err) {
+      setSkills(prev);
+      setError((err as Error).message || "Failed to add tag");
+    }
+  }
+
   function handleLogout() {
     const confirm = window.confirm("Are you sure you want to log out?");
     if (!confirm) return;
@@ -161,18 +200,28 @@ export default function MySkills() {
             <SkillsColumn
               title="Private Skills"
               subtitle="Only you can view these skills."
-              skills={skillsPrivate}
+              skills={filteredPrivate}
               onEdit={openEditPicker}
               onDelete={handleDeleteChange}
               onChangePrivacy={onChangePrivacy}
+              onAddTag={handleAddTag}
+              searchName={searchNamePrivate}
+              onSearchNameChange={setSearchNamePrivate}
+              searchTag={searchTagPrivate}
+              onSearchTagChange={setSearchTagPrivate}
             />
             <SkillsColumn
               title="Public Skills"
               subtitle="Visible to everyone."
-              skills={skillsPublic}
+              skills={filteredPublic}
               onEdit={openEditPicker}
               onDelete={handleDeleteChange}
               onChangePrivacy={onChangePrivacy}
+              onAddTag={handleAddTag}
+              searchName={searchNamePublic}
+              onSearchNameChange={setSearchNamePublic}
+              searchTag={searchTagPublic}
+              onSearchTagChange={setSearchTagPublic}
             />
           </>
         )}
@@ -188,9 +237,26 @@ type SkillsColumnProps = {
   onEdit: (skill: Skill) => void;
   onDelete: (skill: Skill) => void;
   onChangePrivacy?: (skill: Skill) => void;
+  onAddTag?: (skillId: number, tagName: string) => void;
+  searchName: string;
+  onSearchNameChange: (value: string) => void;
+  searchTag: string;
+  onSearchTagChange: (value: string) => void;
 };
 
-function SkillsColumn({ title, subtitle, skills, onEdit, onDelete, onChangePrivacy }: SkillsColumnProps) {
+function SkillsColumn({
+  title,
+  subtitle,
+  skills,
+  onEdit,
+  onDelete,
+  onChangePrivacy,
+  onAddTag,
+  searchName,
+  onSearchNameChange,
+  searchTag,
+  onSearchTagChange,
+}: SkillsColumnProps) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-sm shadow-slate-900/30">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -217,6 +283,23 @@ function SkillsColumn({ title, subtitle, skills, onEdit, onDelete, onChangePriva
       </div>
 
       <div className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <input
+            type="search"
+            value={searchName}
+            onChange={(e) => onSearchNameChange(e.target.value)}
+            placeholder="Search by name..."
+            className="w-full max-w-45 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500"
+          />
+          <input
+            type="search"
+            value={searchTag}
+            onChange={(e) => onSearchTagChange(e.target.value)}
+            placeholder="Search by tag..."
+            className="w-full max-w-45 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500"
+          />
+        </div>
+
         {skills.length === 0 ? (
           <p className="text-sm text-slate-400">No skills yet.</p>
         ) : (
@@ -227,6 +310,7 @@ function SkillsColumn({ title, subtitle, skills, onEdit, onDelete, onChangePriva
               onEdit={onEdit}
               onDelete={onDelete}
               onChangePrivacy={onChangePrivacy}
+              onAddTag={onAddTag}
             />
           ))
         )}

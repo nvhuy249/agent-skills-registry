@@ -10,6 +10,7 @@ export type Skill = {
   owner?: string;
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
+  tag_list?: string[] | null;
 };
 
 export type SkillDetail = Skill & {
@@ -63,6 +64,7 @@ export async function loadSkills(): Promise<Skill[]> {
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
+    tag_list: Array.isArray(skill.tag_list) ? skill.tag_list : [],
   })) as Skill[];
 }
 
@@ -82,6 +84,9 @@ export async function loadPublicSkills(): Promise<Skill[]> {
   return skills.map((skill: any) => ({
     ...skill,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
+    cloned_from_user_id: skill?.cloned_from_user_id ?? null,
+    cloned_from_username: skill?.cloned_from_username ?? null,
+    tag_list: Array.isArray(skill.tag_list) ? skill.tag_list : [],
   })) as Skill[];
 }
 
@@ -258,4 +263,67 @@ export async function clonePublicSkill(skillId: number): Promise<void> {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Failed to clone skill");
   }
+}
+
+export async function addTag(skillId: number, tagName: string): Promise<void> {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+    throw new Error("Not logged in: missing userId");
+  }
+  const res = await fetch(`${API_BASE}/addtag`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "user-id": userId,
+    },
+    body: JSON.stringify({ skillId, tagName }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to add tag");
+  }
+}
+
+export async function removeTag(skillId: number, tagName: string): Promise<void> {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+    throw new Error("Not logged in: missing userId");
+  }
+  const res = await fetch(`${API_BASE}/removetag`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "user-id": userId,
+    },
+    body: JSON.stringify({ skillId, tagName }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to remove tag");
+  }
+}
+
+export async function searchbytag(tagName: string): Promise<Skill[]> {
+  const res = await fetch(`${API_BASE}/searchbytag?tagName=${encodeURIComponent(tagName)}`, {
+    method: "GET",
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to search skills by tag");
+  }
+
+  const data = await res.json();
+  const skills = Array.isArray(data.skills) ? data.skills : [];
+  return skills.map((skill: any) => ({
+    ...skill,
+    allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
+    cloned_from_user_id: skill?.cloned_from_user_id ?? null,
+    cloned_from_username: skill?.cloned_from_username ?? null,
+    tag_list: Array.isArray(skill.tag_list) ? skill.tag_list : [],
+  })) as Skill[];
 }

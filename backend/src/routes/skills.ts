@@ -13,6 +13,7 @@ type SkillRow = {
   allowed_tools?: string | null;
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
+  tag_list?: string[] | null;
 };
 
 type markdownFile = {
@@ -24,6 +25,11 @@ type markdownFile = {
   is_public?: number | boolean | null;
   cloned_from_user_id?: number | null;
   cloned_from_username?: string | null;
+};
+
+type tagRow = {
+  id: number;
+  name: string;
 };
 
 function parseAllowedTools(raw: unknown): string[] {
@@ -57,19 +63,23 @@ router.get("/loadskills", (req, res) => {
 
   const rows = db.prepare(`
     SELECT
-      id,
-      name,
-      description,
-      updated_at AS updatedAt,
-      is_public,
-      allowed_tools,
-      cloned_from_user_id,
+      skills.id,
+      skills.name,
+      skills.description,
+      skills.updated_at AS updatedAt,
+      skills.is_public,
+      skills.allowed_tools,
+      skills.cloned_from_user_id,
       (
-        SELECT username FROM users WHERE id = cloned_from_user_id
-      ) AS cloned_from_username
+        SELECT username FROM users WHERE id = skills.cloned_from_user_id
+      ) AS cloned_from_username,
+      GROUP_CONCAT(tags.name) AS tag_list
     FROM skills
+    LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
+    LEFT JOIN tags ON skill_tags.tag_id = tags.id
     WHERE user_id = ?
-    ORDER BY updated_at DESC
+    GROUP BY skills.id
+    ORDER BY skills.updated_at DESC
   `).all(userId) as SkillRow[];
 
   const skills = rows.map((row) => ({
@@ -81,6 +91,12 @@ router.get("/loadskills", (req, res) => {
     allowedTools: parseAllowedTools(row.allowed_tools),
     cloned_from_user_id: row.cloned_from_user_id,
     cloned_from_username: row.cloned_from_username,
+    tag_list: row.tag_list
+      ? String(row.tag_list)
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
   }));
 
   return res.status(200).json({ skills });
@@ -99,10 +115,14 @@ router.get("/publicskills", (_req, res) => {
       cloned_from_user_id,
       (
         SELECT username FROM users WHERE id = cloned_from_user_id
-      ) AS cloned_from_username
+      ) AS cloned_from_username,
+      GROUP_CONCAT(tags.name) AS tag_list
     FROM skills
     JOIN users ON skills.user_id = users.id
+    LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
+    LEFT JOIN tags ON skill_tags.tag_id = tags.id
     WHERE skills.is_public = 1
+    GROUP BY skills.id
     ORDER BY skills.updated_at DESC
   `).all() as (SkillRow & { owner: string })[];
   const skills = rows.map((row) => ({
@@ -114,6 +134,12 @@ router.get("/publicskills", (_req, res) => {
     owner: row.owner,
     cloned_from_user_id: row.cloned_from_user_id,
     cloned_from_username: row.cloned_from_username,
+    tag_list: row.tag_list
+      ? String(row.tag_list)
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
   }));
   return res.status(200).json({ skills });
 });
@@ -165,6 +191,7 @@ router.delete("/deleteskill", (req, res) => {
   }
 
   db.prepare("DELETE FROM skills WHERE id = ? AND user_id = ?").run(skillId, userId);
+  db.prepare("DELETE FROM skill_tags WHERE skill_id = ?").run(skillId);
   return res.status(200).json({ message: "Skill deleted successfully" });
 });
 
@@ -372,9 +399,102 @@ router.post("/clonepublicskill", (req, res) => {
   if (!skill) {
     return res.status(404).json({ error: "Skill not found or not public" });
   }
-  db.prepare("INSERT INTO skills (user_id, name, description, content, allowed_tools, cloned_from_user_id) VALUES (?, ?, ?, ?, ?, ?)")
+  const newSkill = db.prepare("INSERT INTO skills (user_id, name, description, content, allowed_tools, cloned_from_user_id) VALUES (?, ?, ?, ?, ?, ?)")
     .run(userId, skill.name, skill.description, skill.content, JSON.stringify(parseAllowedTools(skill.allowed_tools)), skill.user_id);
+  const tags = db.prepare("SELECT tag_id FROM skill_tags WHERE skill_id = ?").all(skillId) as { tag_id: number }[];
+  const newSkillId = newSkill.lastInsertRowid as number;
+  for (const tag of tags) {
+    db.prepare("INSERT INTO skill_tags (skill_id, tag_id) VALUES (?, ?)").run(newSkillId, tag.tag_id);
+  }
   return res.status(201).json({ message: "Skill cloned successfully" });
+});
+
+// Add a tag to a skill
+router.post("/addtag", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.body.userId as string | undefined);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { skillId, tagName } = req.body as { skillId: number; tagName: string };
+  if (!skillId || !tagName) {
+    return res.status(400).json({ error: "Missing skillId or tagName" });
+  }
+  const skill = db.prepare("SELECT * FROM skills WHERE id = ? AND user_id = ?").get(skillId, userId);
+  if (!skill) {
+    return res.status(404).json({ error: "Skill not found" });
+  }
+  const lowerTagName = tagName.toLowerCase();
+  let tag = db.prepare("SELECT * FROM tags WHERE name = ?").get(lowerTagName) as tagRow | undefined;
+  if (!tag) {
+    const result = db.prepare("INSERT INTO tags (name) VALUES (?)").run(lowerTagName);
+    tag = { id: Number(result.lastInsertRowid), name: lowerTagName };
+  }
+  db.prepare("INSERT INTO skill_tags (skill_id, tag_id) VALUES (?, ?)").run(skillId, tag?.id);
+  return res.status(200).json({ message: "Tag added to skill successfully" });
+});
+
+// Search skills by tag
+router.get("/searchbytag", (req, res) => {
+  const { tagName } = req.query as { tagName: string };
+  if (!tagName) {
+    return res.status(400).json({ error: "Missing tagName" });
+  }
+  const rows = db.prepare(`
+    SELECT
+      skills.id,
+      skills.name,
+      skills.description,
+      skills.updated_at AS updatedAt,
+      skills.allowed_tools,
+      skills.cloned_from_user_id,
+      (SELECT username FROM users WHERE id = skills.cloned_from_user_id) AS cloned_from_username,
+      users.username AS owner
+    FROM skills
+    LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
+    LEFT JOIN tags ON skill_tags.tag_id = tags.id
+    JOIN users ON skills.user_id = users.id
+    WHERE (? = '' OR LOWER (tags.name) LIKE ?) AND skills.is_public = 1
+    ORDER BY skills.updated_at DESC
+    `).all(tagName, `%${tagName}%`) as (SkillRow & { owner: string })[];
+  const skills = rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    updatedAt: row.updatedAt,
+    allowedTools: parseAllowedTools(row.allowed_tools),
+    owner: row.owner,
+    cloned_from_user_id: row.cloned_from_user_id,
+    cloned_from_username: row.cloned_from_username,
+    tag_list: row.tag_list
+      ? String(row.tag_list)
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
+  }));
+  return res.status(200).json({ skills });
+});
+
+// Remove a tag from a skill
+router.post("/removetag", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.body.userId as string | undefined);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { skillId, tagName } = req.body as { skillId: number; tagName: string };
+  if (!skillId || !tagName) {
+    return res.status(400).json({ error: "Missing skillId or tagName" });
+  }
+  const skill = db.prepare("SELECT * FROM skills WHERE id = ? AND user_id = ?").get(skillId, userId);
+  if (!skill) {
+    return res.status(404).json({ error: "Skill not found" });
+  }
+  const tag = db.prepare("SELECT * FROM tags WHERE name = ?").get(tagName) as tagRow | undefined;
+  if (!tag) {
+    return res.status(404).json({ error: "Tag not found" });
+  }
+  db.prepare("DELETE FROM skill_tags WHERE skill_id = ? AND tag_id = ?").run(skillId, tag.id);
+  return res.status(200).json({ message: "Tag deleted from skill successfully" });
 });
 
 export default router;

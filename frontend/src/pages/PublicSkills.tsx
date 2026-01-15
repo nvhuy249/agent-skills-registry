@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, use } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadPublicSkills, downloadPublicSkill, clonePublicSkill, type Skill } from "../api/skills";
+import { loadPublicSkills, downloadPublicSkill, clonePublicSkill, searchbytag, type Skill } from "../api/skills";
 import PublicSkillCard from "../components/PublicSkillCard";
 
 export default function PublicSkills() {
   const [skills, setSkills] = useState<Skill[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -13,6 +14,7 @@ export default function PublicSkills() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [cloningId, setCloningId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [searchTag, setSearchTag] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "name-asc" | "name-desc">("recent");
   const [filter, setFilter] = useState<"all" | "with-description">("all");
   const [page, setPage] = useState(1);
@@ -25,6 +27,7 @@ export default function PublicSkills() {
     try {
       const data = await loadPublicSkills();
       setSkills(data);
+      setTags(Array.from(new Set(data.flatMap((skill) => skill.tag_list ?? []))));
     } catch (err: any) {
       setError(err.message || "Failed to load public skills");
     } finally {
@@ -59,6 +62,31 @@ export default function PublicSkills() {
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * pageSize;
   const visible = filtered.slice(start, start + pageSize);
+
+  const searchTagResults = useCallback(async () => {
+    const tag = searchTag.trim().toLowerCase();
+    if (!tag) {
+      refresh();
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const t = setTimeout(async () => {
+      try {
+        const data = await searchbytag(tag);
+        setSkills(data);
+      } catch (err: any) {
+        setError(err.message || "Failed to load public skills by tag");
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTag, refresh]);
+
+  useEffect(() => {
+    searchTagResults();
+  }, [searchTag, searchTagResults]);
 
   useEffect(() => {
     setPage(1);
@@ -127,7 +155,14 @@ export default function PublicSkills() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name..."
-            className="w-full max-w-xs rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+            className="w-full max-w-50 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
+          />
+          <input
+            type="search"
+            value={searchTag}
+            onChange={(e) => setSearchTag(e.target.value)}
+            placeholder="Search by tag..."
+            className="w-full max-w-50 rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 outline-none focus:border-indigo-500"
           />
           <select
             value={sortBy}

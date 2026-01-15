@@ -10,6 +10,9 @@ type Props = {
 
 export default function PublicSkillCard({ skill, onView, onDownload, onClone }: Props) {
   const [open, setOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const tagsRef = useRef<HTMLDivElement>(null);
+  const tags = skill.tag_list ?? [];
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -33,15 +36,51 @@ export default function PublicSkillCard({ skill, onView, onDownload, onClone }: 
           <p className="text-xs text-slate-500">Updated: {skill.updatedAt}</p>
         </div>
         <div className="flex items-start gap-2">
-          <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold uppercase text-slate-200">
-            Owner
-          </span>
-          <div className="flex-row-1 flex-row items-end gap-2 space-y-4">
-            {skill.owner ? (
-              <span className="flex rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200 border border-indigo-500/30">
-                {skill.owner}
-              </span>
+          <div
+            className="relative"
+            onMouseEnter={() => setTagsOpen(true)}
+            onMouseLeave={() => setTagsOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setTagsOpen((prev) => !prev)}
+              className="rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-100 hover:border-indigo-400 hover:text-indigo-200"
+            >
+              {tags.length ? `${tags.length} tag${tags.length === 1 ? "" : "s"}` : "Tags"}
+            </button>
+            {tagsOpen ? (
+              <div
+                ref={tagsRef}
+                className="absolute left-0 top-12 z-20 w-52 rounded-xl border border-slate-700 bg-slate-900/95 p-3 shadow-xl shadow-black/40"
+              >
+                <p className="mb-2 text-xs font-semibold uppercase text-slate-400">Tags</p>
+                <div className="flex flex-wrap gap-2">
+                  {tags.length === 0 ? (
+                    <span className="text-xs text-slate-400">No tags available.</span>
+                  ) : null}
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
             ) : null}
+          </div>
+          <div className="flex-row-1 flex-row items-end gap-2 space-y-4">
+            <div className="flex items-start gap-2">
+              <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold uppercase text-slate-200">
+                Owner
+              </span>
+              {skill.owner ? (
+                <span className="flex rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-200 border border-indigo-500/30">
+                  {skill.owner}
+                </span>
+              ) : null}
+            </div>
             {skill.cloned_from_user_id || skill.cloned_from_username ? (
               <span className="flex-row-2 rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
                 Cloned from @{skill.cloned_from_username ?? skill.cloned_from_user_id}
