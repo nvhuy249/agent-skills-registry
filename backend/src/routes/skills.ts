@@ -620,12 +620,14 @@ router.get("/searchbytag", (req, res) => {
       skills.allowed_tools,
       skills.cloned_from_user_id,
       (SELECT username FROM users WHERE id = skills.cloned_from_user_id) AS cloned_from_username,
-      users.username AS owner
+      users.username AS owner,
+      GROUP_CONCAT(tags.name) AS tag_list
     FROM skills
     LEFT JOIN skill_tags ON skills.id = skill_tags.skill_id
     LEFT JOIN tags ON skill_tags.tag_id = tags.id
     JOIN users ON skills.user_id = users.id
     WHERE (? = '' OR LOWER (tags.name) LIKE ?) AND skills.is_public = 1
+    GROUP BY skills.id
     ORDER BY skills.updated_at DESC
     `).all(tagName, `%${tagName}%`) as (SkillRow & { owner: string })[];
   const skills = rows.map((row) => ({

@@ -418,6 +418,13 @@ export async function searchbytag(tagName: string): Promise<Skill[]> {
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
-    tag_list: Array.isArray(skill.tag_list) ? skill.tag_list : [],
+    tag_list: Array.isArray(skill.tag_list)
+      ? skill.tag_list
+      : typeof skill.tag_list === "string"
+        ? skill.tag_list
+            .split(",")
+            .map((t: string) => t.trim())
+            .filter(Boolean)
+        : [],
   })) as Skill[];
 }
