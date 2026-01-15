@@ -61,9 +61,6 @@ export async function loadSkills(): Promise<Skill[]> {
 
   const res = await fetch(`${API_BASE}/loadskills`, {
     method: "GET",
-    headers: {
-      "user-id": userId,
-    },
     credentials: "include",
   });
 
@@ -138,7 +135,6 @@ export async function uploadSkill(markdown: string): Promise<void> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ markdown }),
     credentials: "include",
@@ -159,7 +155,6 @@ export async function deleteSkill(skillId: number): Promise<void> {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId }),
     credentials: "include",
@@ -178,9 +173,6 @@ export async function showSkill(skillId: number): Promise<SkillDetail> {
   }
   const res = await fetch(`${API_BASE}/showskill?skillId=${skillId}`, {
     method: "GET",
-    headers: {
-      "user-id": userId,
-    },
     credentials: "include",
   });
 
@@ -238,7 +230,6 @@ export async function editSkill(skillId: number, markdown: string): Promise<{ up
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId, markdown }),
     credentials: "include",
@@ -251,12 +242,8 @@ export async function editSkill(skillId: number, markdown: string): Promise<{ up
 }
 
 export async function loadSkillVersions(skillId: number): Promise<SkillVersionSummary[]> {
-  const userId = localStorage.getItem("userId");
-  const headers: Record<string, string> = {};
-  if (userId) headers["user-id"] = userId;
   const res = await fetch(`${API_BASE}/loadversions?skillId=${skillId}`, {
     method: "GET",
-    headers,
     credentials: "include",
   });
   if (!res.ok) {
@@ -275,12 +262,8 @@ export async function loadSkillVersions(skillId: number): Promise<SkillVersionSu
 }
 
 export async function showSkillVersion(skillId: number, version: number): Promise<SkillVersionDetail> {
-  const userId = localStorage.getItem("userId");
-  const headers: Record<string, string> = {};
-  if (userId) headers["user-id"] = userId;
   const res = await fetch(`${API_BASE}/showversion?skillId=${skillId}&version=${version}`, {
     method: "GET",
-    headers,
     credentials: "include",
   });
   if (!res.ok) {
@@ -313,7 +296,6 @@ export async function pushSkillVersion(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId, markdown, message }),
     credentials: "include",
@@ -334,7 +316,6 @@ export async function changePrivacy(skillId: number, is_public: boolean): Promis
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId, is_public }),
     credentials: "include",
@@ -369,7 +350,6 @@ export async function clonePublicSkill(skillId: number): Promise<void> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId }),
     credentials: "include",
@@ -390,7 +370,6 @@ export async function addTag(skillId: number, tagName: string): Promise<void> {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId, tagName }),
     credentials: "include",
@@ -411,7 +390,6 @@ export async function removeTag(skillId: number, tagName: string): Promise<void>
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "user-id": userId,
     },
     body: JSON.stringify({ skillId, tagName }),
     credentials: "include",

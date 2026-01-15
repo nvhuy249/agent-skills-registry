@@ -14,6 +14,7 @@ export async function signup(username: string, password: string): Promise<AuthRe
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ username, password }),
+    credentials: "include",
   });
   return res.json();
 }
@@ -25,6 +26,14 @@ export async function login(username: string, password: string): Promise<AuthRes
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ username, password }),
+    credentials: "include",
   });
   return res.json();
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
 }

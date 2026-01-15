@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import SkillCard, { type Skill } from "../components/SkillCard";
 import { useNavigate } from "react-router-dom";
 import { loadSkills, uploadSkill, deleteSkill, changePrivacy, addTag } from "../api/skills";
+import { logout as apiLogout } from "../api/auth";
 
 export default function MySkills() {
   const navigate = useNavigate();
@@ -148,9 +149,10 @@ export default function MySkills() {
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
     const confirm = window.confirm("Are you sure you want to log out?");
     if (!confirm) return;
+    await apiLogout().catch(() => null);
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
     navigate("/login", { replace: true });

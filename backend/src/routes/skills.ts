@@ -1,6 +1,7 @@
 import { Router } from "express";
 import db from "../db";
 import matter from "gray-matter";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
@@ -45,7 +46,7 @@ type SkillVersionRow = {
   message?: string | null;
 };
 
-function canAccessSkill(skillId: number, userId?: string | null) {
+function canAccessSkill(skillId: number, userId?: number | null) {
   const skill = db
     .prepare("SELECT id, user_id, is_public FROM skills WHERE id = ?")
     .get(skillId) as { id: number; user_id: number; is_public: number | boolean } | undefined;
@@ -86,10 +87,8 @@ function extractAllowedTools(data: Record<string, unknown>): string[] {
 }
 
 // Load skills for a user
-router.get("/loadskills", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.query.userId as string | undefined);
+router.get("/loadskills", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
@@ -189,10 +188,8 @@ router.get("/publicskills", (_req, res) => {
 });
 
 // Upload a new skill
-router.post("/uploadskill", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/uploadskill", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
@@ -225,10 +222,8 @@ router.post("/uploadskill", (req, res) => {
 });
 
 // Delete a skill
-router.delete("/deleteskill", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.delete("/deleteskill", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
@@ -248,10 +243,8 @@ router.delete("/deleteskill", (req, res) => {
 });
 
 // Load a single skill for editing
-router.get("/showskill", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.query.userId as string | undefined);
+router.get("/showskill", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
@@ -363,10 +356,8 @@ router.get("/showpublicskill", (req, res) => {
 });
 
 // Update an existing skill
-router.post("/editskill", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/editskill", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
   const { skillId, markdown } = req.body as { skillId: number; markdown: string };
@@ -393,10 +384,8 @@ router.post("/editskill", (req, res) => {
 });
 
 // Change skill privacy
-router.post("/changeprivacy", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/changeprivacy", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const { skillId, is_public } = req.body as { skillId: number; is_public: boolean | string | number };
   if (!skillId) {
@@ -446,9 +435,7 @@ router.get("/downloadskill", (req, res) => {
 
 // List skill versions
 router.get("/loadversions", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.query.userId as string | undefined);
+  const userId = req.user?.userId ?? null;
   const skillId = Number(req.query.skillId as string | undefined);
   if (!skillId) {
     return res.status(400).json({ error: "Missing skillId" });
@@ -480,9 +467,7 @@ router.get("/loadversions", (req, res) => {
 
 // Get a specific version snapshot
 router.get("/showversion", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.query.userId as string | undefined);
+  const userId = req.user?.userId ?? null;
   const skillId = Number(req.query.skillId as string | undefined);
   const version = Number(req.query.version as string | undefined);
   if (!skillId || !version) {
@@ -530,10 +515,8 @@ router.get("/showversion", (req, res) => {
 });
 
 // Push a new version with message
-router.post("/pushversion", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/pushversion", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
   const { skillId, markdown, message } = req.body as { skillId: number; markdown: string; message: string };
@@ -579,10 +562,8 @@ router.post("/pushversion", (req, res) => {
 });
 
 // Clone a public skill
-router.post("/clonepublicskill", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/clonepublicskill", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const { skillId } = req.body as { skillId: number };
   if (!skillId) {
@@ -603,10 +584,8 @@ router.post("/clonepublicskill", (req, res) => {
 });
 
 // Add a tag to a skill
-router.post("/addtag", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/addtag", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const { skillId, tagName } = req.body as { skillId: number; tagName: string };
   if (!skillId || !tagName) {
@@ -669,10 +648,8 @@ router.get("/searchbytag", (req, res) => {
 });
 
 // Remove a tag from a skill
-router.post("/removetag", (req, res) => {
-  const userId =
-    (req.headers["user-id"] as string | undefined) ??
-    (req.body.userId as string | undefined);
+router.post("/removetag", requireAuth, (req, res) => {
+  const userId = req.user?.userId;
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
   const { skillId, tagName } = req.body as { skillId: number; tagName: string };
   if (!skillId || !tagName) {
