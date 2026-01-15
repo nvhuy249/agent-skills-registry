@@ -46,6 +46,11 @@ To reset data, stop servers and delete `backend/db/database.sqlite`.
 - Manage privacy, add tags, edit content, and push versions from My Skills. Public Skills lets you search, view, download, and clone.
 - When cloning, tags are copied and the source user is recorded.
 
+## Download counts
+- Stored on `skills.download_count` in SQLite (`backend/src/schema.ts`).
+- Incremented in `backend/src/routes/skills.ts` inside `GET /api/skills/downloadskill` when a public skill is downloaded.
+- Displayed on public cards in `frontend/src/components/PublicSkillCard.tsx` (shows the current count next to the download badge).
+
 ## Project layout
 - `backend/` - Express API, SQLite schema/migrations-in-code, routes for auth/skills.
 - `frontend/` - React SPA pages/components and API client.
