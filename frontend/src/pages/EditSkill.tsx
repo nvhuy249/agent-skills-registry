@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { showSkill, editSkill, changePrivacy } from "../api/skills";
+import {
+  showSkill,
+  editSkill,
+  changePrivacy,
+  loadSkillVersions,
+  showSkillVersion,
+  pushSkillVersion,
+  type SkillVersionSummary,
+} from "../api/skills";
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 const draftKey = (id: number) => `skillDraft:${id}`;
@@ -22,6 +30,25 @@ export default function EditSkill() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [clonedFromUserId, setClonedFromUserId] = useState<number | null>(null);
   const [clonedFromUsername, setClonedFromUsername] = useState<string | null>(null);
+  const [versions, setVersions] = useState<SkillVersionSummary[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [loadingVersion, setLoadingVersion] = useState<number | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushing, setPushing] = useState(false);
+
+  const fetchVersions = useCallback(async () => {
+    setVersionsLoading(true);
+    setVersionsError(null);
+    try {
+      const list = await loadSkillVersions(skillId);
+      setVersions(list);
+    } catch (err: any) {
+      setVersionsError(err.message || "Failed to load version history");
+    } finally {
+      setVersionsLoading(false);
+    }
+  }, [skillId]);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +62,7 @@ export default function EditSkill() {
         setIsPublic(!!data.is_public);
         setClonedFromUserId(data.cloned_from_user_id ?? null);
         setClonedFromUsername(data.cloned_from_username ?? null);
+        void fetchVersions();
         const draft = localStorage.getItem(draftKey(skillId));
         if (draft) {
           setEditorValue(draft);
@@ -52,7 +80,7 @@ export default function EditSkill() {
     return () => {
       mounted = false;
     };
-  }, [skillId]);
+  }, [skillId, fetchVersions]);
 
   const isDirty = useMemo(() => editorValue !== lastSavedContent, [editorValue, lastSavedContent]);
 
@@ -99,7 +127,63 @@ export default function EditSkill() {
     return () => clearTimeout(t);
   }, [autoSaveEnabled, isDirty, save, loading]);
 
-  if (loading) return <div className="text-slate-200">Loading…</div>;
+  const [openVersion, setOpenVersion] = useState<{
+    version: number;
+    content: string;
+    name?: string;
+  } | null>(null);
+
+  async function handleToggleViewVersion(version: number) {
+    if (openVersion?.version === version) {
+      setOpenVersion(null);
+      return;
+    }
+    setLoadingVersion(version);
+    setVersionsError(null);
+    try {
+      const detail = await showSkillVersion(skillId, version);
+      setOpenVersion({
+        version,
+        content: detail.markdown ?? detail.content ?? "",
+        name: detail.name,
+      });
+    } catch (err: any) {
+      setVersionsError(err.message || "Failed to load version");
+    } finally {
+      setLoadingVersion(null);
+    }
+  }
+
+  async function handlePushVersion() {
+    if (pushing) return;
+    const message = window.prompt("Enter a message to commit:");
+    if (message === null) return;
+    const msg = message.trim();
+    if (!msg) {
+      setPushError("Message is required to commit.");
+      return;
+    }
+    setPushError(null);
+    setStatus("saving");
+    setPushing(true);
+    try {
+      const res = await pushSkillVersion(skillId, editorValue, msg);
+      setLastSavedContent(editorValue);
+      setLastSavedAt(res.updatedAt ?? new Date().toISOString());
+      localStorage.removeItem(draftKey(skillId));
+      setDraftLoaded(false);
+      setStatus("saved");
+      void fetchVersions();
+      setTimeout(() => setStatus("idle"), 1200);
+    } catch (err: any) {
+      setStatus("failed");
+      setPushError(err.message || "Failed to push version");
+    } finally {
+      setPushing(false);
+    }
+  }
+
+  if (loading) return <div className="text-slate-200">Loading...</div>;
   if (error && !lastSavedContent) return <div className="text-rose-200">{error}</div>;
 
   const onBack = () => {
@@ -135,7 +219,7 @@ export default function EditSkill() {
         <div>
           <h1 className="text-2xl font-semibold text-white">{skillName ?? "Edit Skill"}</h1>
           <p className="text-sm text-slate-400">
-            Last saved: {lastSavedAt ? new Date(lastSavedAt).toLocaleString() : "—"}
+            Last saved: {lastSavedAt ? new Date(lastSavedAt).toLocaleString() : "Unknown"}
           </p>
             {clonedFromUserId || clonedFromUsername ? (
               <p className="text-xs text-indigo-200">
@@ -148,7 +232,7 @@ export default function EditSkill() {
           <button 
             type="button" 
             className="mr-4 rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:border-indigo-400 hover:text-indigo-200"
-            disabled={status === "saving"}
+            disabled={status === "saving" || pushing}
             onClick={onPrivacyChange}>
             {is_public ? "Make Private" : "Make Public"}
           </button>
@@ -161,19 +245,19 @@ export default function EditSkill() {
                 ? "text-emerald-300 hover:text-emerald-200 hover:border-emerald-400"
                 : "text-rose-300 hover:text-rose-200 hover:border-rose-400"
             }`}
-            disabled={status === "saving"}
+            disabled={status === "saving" || pushing}
             onClick={() => setAutoSaveEnabled((prev) => !prev)}
           >
             {autoSaveEnabled ? "Auto-Save On" : "Auto-Save Off"}
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={status} />
           <button
             type="button"
             onClick={onReset}
             className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:border-indigo-400 hover:text-indigo-200"
-            disabled={status === "saving"}
+            disabled={status === "saving" || pushing}
           >
             Reset
           </button>
@@ -181,9 +265,17 @@ export default function EditSkill() {
             type="button"
             onClick={() => void save()}
             className="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-60"
-            disabled={status === "saving"}
+            disabled={status === "saving" || pushing}
           >
-            Save
+            Save draft
+          </button>
+          <button
+            type="button"
+            onClick={() => void handlePushVersion()}
+            className="rounded-md border border-indigo-500/60 px-3 py-2 text-sm font-semibold text-indigo-200 hover:bg-indigo-500/10 disabled:opacity-60"
+            disabled={status === "saving" || pushing}
+          >
+            Push version
           </button>
           <button
             type="button"
@@ -200,12 +292,108 @@ export default function EditSkill() {
           {error}
         </div>
       ) : null}
+      {pushError ? (
+        <div className="rounded border border-amber-500/50 bg-amber-900/20 px-3 py-2 text-sm text-amber-100">
+          {pushError}
+        </div>
+      ) : null}
 
       <textarea
         className="w-full min-h-[60vh] rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 outline-none focus:border-indigo-500"
         value={editorValue}
         onChange={(e) => setEditorValue(e.target.value)}
       />
+
+      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm shadow-slate-900/40">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Version history</h2>
+            <p className="text-xs text-slate-400">Revert by loading a previous version into the editor.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void fetchVersions()}
+            className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-100 hover:border-indigo-400 hover:text-indigo-200 disabled:opacity-60"
+            disabled={versionsLoading}
+          >
+            Refresh
+          </button>
+        </div>
+        {versionsError ? (
+          <div className="mb-2 rounded-md border border-rose-500/40 bg-rose-900/20 px-3 py-2 text-sm text-rose-100">
+            {versionsError}
+          </div>
+        ) : null}
+        {versionsLoading ? (
+          <p className="text-xs text-slate-400">Loading versions...</p>
+        ) : versions.length === 0 ? (
+          <p className="text-sm text-slate-400">No versions yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-800/70">
+            {versions.map((v) => (
+              <div key={v.version} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-white">version {v.version}</p>
+                  {v.message ? (
+                    <p className="text-xs text-slate-300">Message: "{v.message}"</p>
+                  ) : null}
+                  <p className="text-xs text-slate-400">
+                    {v.createdAt ? new Date(v.createdAt).toLocaleString() : "Unknown date"}
+                  </p>
+                  {v.description ? (
+                    <p className="text-xs text-slate-400">"{v.description}"</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleToggleViewVersion(v.version)}
+                  disabled={loadingVersion === v.version}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
+                    openVersion?.version === v.version
+                      ? "border-rose-500/60 text-rose-200 hover:bg-rose-500/10"
+                      : "border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/10"
+                  }`}
+                >
+                  {loadingVersion === v.version
+                    ? "Loading..."
+                    : openVersion?.version === v.version
+                    ? "Close version"
+                    : "View version"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {openVersion ? (
+        <div className="rounded-xl border border-emerald-700/60 bg-emerald-950/30 p-4 shadow-sm shadow-black/40">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-emerald-100">
+                Viewing version {openVersion.version}
+              </p>
+              <p className="text-xs text-emerald-200/80">
+                Read-only snapshot{openVersion.name ? `: ${openVersion.name}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenVersion(null)}
+              className="rounded-md border border-rose-500/60 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/10"
+            >
+              Close version
+            </button>
+          </div>
+          <textarea
+            className="w-full min-h-[40vh] rounded-lg border border-emerald-700 bg-slate-950 px-4 py-3 font-mono text-sm text-slate-100 outline-none"
+            value={openVersion.content}
+            readOnly
+            spellCheck={false}
+          />
+        </div>
+      ) : null}
+
     </div>
   );
 }
@@ -213,7 +401,7 @@ export default function EditSkill() {
 function StatusBadge({ status }: { status: SaveStatus }) {
   const text =
     status === "saving"
-      ? "Saving…"
+      ? "Saving..."
       : status === "saved"
       ? "Saved"
       : status === "failed"

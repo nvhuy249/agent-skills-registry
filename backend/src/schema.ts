@@ -57,6 +57,7 @@ db.prepare(`
     description TEXT,
     content TEXT NOT NULL,
     allowed_tools TEXT NOT NULL DEFAULT '[]',
+    message TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
   )

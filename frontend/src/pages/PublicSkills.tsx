@@ -130,7 +130,7 @@ export default function PublicSkills() {
       setSkills((prev) =>
         prev.map((s) =>
           s.id === skill.id
-            ? { ...s, download_count: (s.download_count ?? 0) + 1 }
+            ? { ...s, downloadCount: (s.download_count ?? s.download_count ?? 0) + 1 }
             : s
         )
       );

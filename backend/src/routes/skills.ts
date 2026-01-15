@@ -9,6 +9,7 @@ type SkillRow = {
   name: string;
   description?: string | null;
   updatedAt: string;
+  latestVersion?: number | null;
   is_public?: number | boolean | null;
   allowed_tools?: string | null;
   cloned_from_user_id?: number | null;
@@ -34,6 +35,29 @@ type tagRow = {
   name: string;
 };
 
+type SkillVersionRow = {
+  version: number;
+  created_at: string;
+  name: string;
+  description?: string | null;
+  content: string;
+  allowed_tools?: string | null;
+  message?: string | null;
+};
+
+function canAccessSkill(skillId: number, userId?: string | null) {
+  const skill = db
+    .prepare("SELECT id, user_id, is_public FROM skills WHERE id = ?")
+    .get(skillId) as { id: number; user_id: number; is_public: number | boolean } | undefined;
+  if (!skill) return { status: 404 as const, error: "Skill not found" };
+  const isOwner = userId && Number(userId) === Number(skill.user_id);
+  const isPublic = Boolean(skill.is_public);
+  if (!isOwner && !isPublic) {
+    return { status: 403 as const, error: "Forbidden" };
+  }
+  return { status: 200 as const, skill, isOwner, isPublic };
+}
+
 function parseAllowedTools(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw.filter((item) => typeof item === "string");
@@ -55,6 +79,12 @@ function parseAllowedTools(raw: unknown): string[] {
   return [];
 }
 
+function extractAllowedTools(data: Record<string, unknown>): string[] {
+  const withDash = (data as Record<string, unknown>)["allowed-tools"];
+  const withUnderscore = (data as Record<string, unknown>)["allowed_tools"];
+  return parseAllowedTools(withDash ?? withUnderscore);
+}
+
 // Load skills for a user
 router.get("/loadskills", (req, res) => {
   const userId =
@@ -69,6 +99,9 @@ router.get("/loadskills", (req, res) => {
       skills.name,
       skills.description,
       skills.updated_at AS updatedAt,
+      (
+        SELECT MAX(version) FROM skill_versions WHERE skill_id = skills.id
+      ) AS latestVersion,
       skills.is_public,
       skills.allowed_tools,
       skills.cloned_from_user_id,
@@ -90,6 +123,7 @@ router.get("/loadskills", (req, res) => {
     name: row.name,
     description: row.description,
     updatedAt: row.updatedAt,
+    latestVersion: row.latestVersion,
     is_public: row.is_public,
     allowedTools: parseAllowedTools(row.allowed_tools),
     cloned_from_user_id: row.cloned_from_user_id,
@@ -114,6 +148,9 @@ router.get("/publicskills", (_req, res) => {
       skills.name,
       skills.description,
       skills.updated_at AS updatedAt,
+      (
+        SELECT MAX(version) FROM skill_versions WHERE skill_id = skills.id
+      ) AS latestVersion,
       skills.allowed_tools,
       users.username AS owner,
       cloned_from_user_id,
@@ -135,6 +172,7 @@ router.get("/publicskills", (_req, res) => {
     name: row.name,
     description: row.description,
     updatedAt: row.updatedAt,
+    latestVersion: row.latestVersion,
     allowedTools: parseAllowedTools(row.allowed_tools),
     owner: row.owner,
     cloned_from_user_id: row.cloned_from_user_id,
@@ -166,16 +204,24 @@ router.post("/uploadskill", (req, res) => {
   const { data, content } = matter(markdown);
   const name = typeof data.name === "string" ? data.name : undefined;
   const description = typeof data.description === "string" ? data.description : undefined;
-  const allowedTools = parseAllowedTools((data as Record<string, unknown>)["allowed-tools"]);
+  const allowedTools = extractAllowedTools(data as Record<string, unknown>);
 
   if (!name) {
     return res.status(400).json({ error: "Skill name is required in markdown frontmatter" });
   }
 
-  db.prepare("INSERT INTO skills (user_id, name, description, content, allowed_tools) VALUES (?, ?, ?, ?, ?)")
-    .run(userId, name, description, content, JSON.stringify(allowedTools));
+  const insertSkill = db.prepare("INSERT INTO skills (user_id, name, description, content, allowed_tools) VALUES (?, ?, ?, ?, ?)");
+  const insertVersion = db.prepare(`
+    INSERT INTO skill_versions (skill_id, version, name, description, content, allowed_tools, created_at, message)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-  return res.status(201).json({ message: "Skill uploaded successfully" });
+  const now = new Date().toISOString();
+  const insert = insertSkill.run(userId, name, description, content, JSON.stringify(allowedTools));
+  const skillId = Number(insert.lastInsertRowid);
+  insertVersion.run(skillId, 1, name, description, content, JSON.stringify(allowedTools), now, null);
+
+  return res.status(201).json({ message: "Skill uploaded successfully", skillId, version: 1, updatedAt: now });
 });
 
 // Delete a skill
@@ -225,7 +271,8 @@ router.get("/showskill", (req, res) => {
           skills.updated_at as updatedAt,
           skills.is_public,
           skills.cloned_from_user_id,
-          source.username as cloned_from_username
+          source.username as cloned_from_username,
+          skills.download_count
         FROM skills
         LEFT JOIN users as source ON source.id = skills.cloned_from_user_id
         WHERE skills.id = ? AND skills.user_id = ?
@@ -259,6 +306,7 @@ router.get("/showskill", (req, res) => {
     is_public: skill.is_public, 
     cloned_from_user_id: skill.cloned_from_user_id,
     cloned_from_username: skill.cloned_from_username,
+    downloadCount: skill.download_count,
     markdown });
 });
 
@@ -278,7 +326,8 @@ router.get("/showpublicskill", (req, res) => {
                 skills.is_public,
                 users.username AS owner,
                 skills.cloned_from_user_id,
-                source.username AS cloned_from_username
+                source.username AS cloned_from_username,
+                skills.download_count
               FROM skills
               JOIN users ON skills.user_id = users.id
               LEFT JOIN users AS source ON source.id = skills.cloned_from_user_id
@@ -308,6 +357,7 @@ router.get("/showpublicskill", (req, res) => {
     owner: skill.owner,
     cloned_from_user_id: skill.cloned_from_user_id,
     cloned_from_username: skill.cloned_from_username,
+    downloadCount: skill.download_count,
     markdown,
   });
 });
@@ -331,7 +381,7 @@ router.post("/editskill", (req, res) => {
   const { data, content } = matter(markdown);
   const name = typeof data.name === "string" ? data.name : undefined;
   const description = typeof data.description === "string" ? data.description : undefined;
-  const allowedTools = parseAllowedTools((data as Record<string, unknown>)["allowed-tools"]);
+  const allowedTools = extractAllowedTools(data as Record<string, unknown>);
   const updatedAt = new Date().toISOString();
   if (!name) {
     return res.status(400).json({ error: "Skill name is required in markdown frontmatter" });
@@ -339,7 +389,7 @@ router.post("/editskill", (req, res) => {
 
   db.prepare("UPDATE skills SET name = ?, description = ?, content = ?, allowed_tools = ?, updated_at = ? WHERE id = ? AND user_id = ?")
     .run(name, description, content, JSON.stringify(allowedTools), updatedAt, skillId, userId);
-  return res.status(200).json({ message: "Skill updated successfully", updatedAt});
+  return res.status(200).json({ message: "Skill updated successfully", updatedAt });
 });
 
 // Change skill privacy
@@ -392,6 +442,140 @@ router.get("/downloadskill", (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="${skill.name}.md"`);
   res.setHeader("Content-Type", "text/markdown");
   return res.status(200).send(markdown);
+});
+
+// List skill versions
+router.get("/loadversions", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.query.userId as string | undefined);
+  const skillId = Number(req.query.skillId as string | undefined);
+  if (!skillId) {
+    return res.status(400).json({ error: "Missing skillId" });
+  }
+  const access = canAccessSkill(skillId, userId);
+  if (access.status !== 200) {
+    return res.status(access.status).json({ error: access.error });
+  }
+  const versions = db
+    .prepare(
+      `
+        SELECT version, created_at, name, description, message
+        FROM skill_versions
+        WHERE skill_id = ?
+        ORDER BY version DESC
+      `
+    )
+    .all(skillId) as SkillVersionRow[];
+  return res.status(200).json({
+    versions: versions.map((v) => ({
+      version: v.version,
+      createdAt: v.created_at,
+      name: v.name,
+      description: v.description,
+      message: v.message,
+    })),
+  });
+});
+
+// Get a specific version snapshot
+router.get("/showversion", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.query.userId as string | undefined);
+  const skillId = Number(req.query.skillId as string | undefined);
+  const version = Number(req.query.version as string | undefined);
+  if (!skillId || !version) {
+    return res.status(400).json({ error: "Missing skillId or version" });
+  }
+  const access = canAccessSkill(skillId, userId);
+  if (access.status !== 200) {
+    return res.status(access.status).json({ error: access.error });
+  }
+  const snapshot = db
+    .prepare(
+      `
+        SELECT version, created_at, name, description, content, allowed_tools, message
+        FROM skill_versions
+        WHERE skill_id = ? AND version = ?
+      `
+    )
+    .get(skillId, version) as SkillVersionRow | undefined;
+  if (!snapshot) {
+    return res.status(404).json({ error: "Version not found" });
+  }
+  const file = {
+    data: {
+      name: snapshot.name,
+      description: snapshot.description,
+      "allowed_tools": parseAllowedTools(snapshot.allowed_tools),
+    },
+    content: snapshot.content,
+  };
+  const markdown = matter.stringify(file.content, {
+    name: file.data.name,
+    description: file.data.description,
+    "allowed_tools": parseAllowedTools(file.data["allowed_tools"]),
+  });
+  return res.status(200).json({
+    version: snapshot.version,
+    createdAt: snapshot.created_at,
+    name: snapshot.name,
+    description: snapshot.description,
+    content: snapshot.content,
+    markdown,
+    allowedTools: parseAllowedTools(snapshot.allowed_tools),
+    message: snapshot.message,
+  });
+});
+
+// Push a new version with message
+router.post("/pushversion", (req, res) => {
+  const userId =
+    (req.headers["user-id"] as string | undefined) ??
+    (req.body.userId as string | undefined);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  const { skillId, markdown, message } = req.body as { skillId: number; markdown: string; message: string };
+  if (!skillId || !markdown) {
+    return res.status(400).json({ error: "Missing skillId or markdown" });
+  }
+  const msg = (message ?? "").trim();
+  if (!msg) {
+    return res.status(400).json({ error: "Version message is required" });
+  }
+
+  const existingSkill = db.prepare("SELECT * FROM skills WHERE id = ? AND user_id = ?").get(skillId, userId);
+  if (!existingSkill) {
+    return res.status(404).json({ error: "Skill not found" });
+  }
+
+  const { data, content } = matter(markdown);
+  const name = typeof data.name === "string" ? data.name : undefined;
+  const description = typeof data.description === "string" ? data.description : undefined;
+  const allowedTools = extractAllowedTools(data as Record<string, unknown>);
+  const updatedAt = new Date().toISOString();
+  if (!name) {
+    return res.status(400).json({ error: "Skill name is required in markdown frontmatter" });
+  }
+
+  const insertVersion = db.prepare(`
+    INSERT INTO skill_versions (skill_id, version, name, description, content, allowed_tools, created_at, message)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const getMaxVersion = db.prepare("SELECT MAX(version) as maxVersion FROM skill_versions WHERE skill_id = ?");
+  const updateSkill = db.prepare("UPDATE skills SET name = ?, description = ?, content = ?, allowed_tools = ?, updated_at = ? WHERE id = ? AND user_id = ?");
+
+  const run = db.transaction(() => {
+    const max = getMaxVersion.get(skillId) as { maxVersion: number | null };
+    const nextVersion = (max?.maxVersion ?? 0) + 1;
+    insertVersion.run(skillId, nextVersion, name, description, content, JSON.stringify(allowedTools), updatedAt, msg);
+    updateSkill.run(name, description, content, JSON.stringify(allowedTools), updatedAt, skillId, userId);
+    return nextVersion;
+  });
+
+  const version = run();
+  return res.status(200).json({ message: "Version pushed successfully", updatedAt, version });
 });
 
 // Clone a public skill

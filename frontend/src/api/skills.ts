@@ -18,6 +18,20 @@ export type SkillDetail = Skill & {
   content: string;
 };
 
+export type SkillVersionSummary = {
+  version: number;
+  createdAt: string;
+  name?: string;
+  description?: string;
+  message?: string;
+};
+
+export type SkillVersionDetail = SkillVersionSummary & {
+  content: string;
+  allowedTools?: string[];
+  markdown?: string;
+};
+
 function parseAllowedTools(raw: unknown): string[] {
   if (Array.isArray(raw)) {
     return raw.filter((item) => typeof item === "string");
@@ -62,7 +76,18 @@ export async function loadSkills(): Promise<Skill[]> {
   const skills = Array.isArray(data.skills) ? data.skills : [];
   return skills.map((skill: any) => ({
     ...skill,
-    download_count: skill.download_count,
+    downloadCount:
+      typeof skill.downloadCount === "number"
+        ? skill.downloadCount
+        : typeof skill.download_count === "number"
+          ? skill.download_count
+          : undefined,
+    latestVersion:
+      typeof skill.latestVersion === "number"
+        ? skill.latestVersion
+        : typeof skill.latest_version === "number"
+          ? skill.latest_version
+          : undefined,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
@@ -85,7 +110,18 @@ export async function loadPublicSkills(): Promise<Skill[]> {
   const skills = Array.isArray(data.skills) ? data.skills : [];
   return skills.map((skill: any) => ({
     ...skill,
-    download_count: skill.download_count,
+    downloadCount:
+      typeof skill.downloadCount === "number"
+        ? skill.downloadCount
+        : typeof skill.download_count === "number"
+          ? skill.download_count
+          : undefined,
+    latestVersion:
+      typeof skill.latestVersion === "number"
+        ? skill.latestVersion
+        : typeof skill.latest_version === "number"
+          ? skill.latest_version
+          : undefined,
     allowedTools: parseAllowedTools(skill?.allowedTools ?? skill?.allowed_tools),
     cloned_from_user_id: skill?.cloned_from_user_id ?? null,
     cloned_from_username: skill?.cloned_from_username ?? null,
@@ -93,7 +129,7 @@ export async function loadPublicSkills(): Promise<Skill[]> {
   })) as Skill[];
 }
 
-export async function uploadSkill( markdown: string ): Promise<void> {
+export async function uploadSkill(markdown: string): Promise<void> {
   const userId = localStorage.getItem("userId");
   if (!userId) {
     throw new Error("Not logged in: missing userId");
@@ -184,7 +220,7 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
     description: data.description,
     updatedAt: data.updatedAt ?? "",
     is_public: data.is_public,
-    download_count: data.download_count,
+    downloadCount: data.download_count,
     allowedTools: parseAllowedTools(data?.allowedTools ?? data?.allowed_tools),
     content: data.markdown ?? "",
     owner: data.owner,
@@ -193,7 +229,7 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
   } as SkillDetail;
 }
 
-export async function editSkill( skillId: number, markdown: string ): Promise<{ updatedAt?: string }> {
+export async function editSkill(skillId: number, markdown: string): Promise<{ updatedAt?: string }> {
   const userId = localStorage.getItem("userId");
   if (!userId) {
     throw new Error("Not logged in: missing userId");
@@ -204,12 +240,87 @@ export async function editSkill( skillId: number, markdown: string ): Promise<{ 
       "Content-Type": "application/json",
       "user-id": userId,
     },
-    body: JSON.stringify({ skillId, markdown}),
+    body: JSON.stringify({ skillId, markdown }),
     credentials: "include",
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || "Failed to edit skill");
+  }
+  return res.json();
+}
+
+export async function loadSkillVersions(skillId: number): Promise<SkillVersionSummary[]> {
+  const userId = localStorage.getItem("userId");
+  const headers: Record<string, string> = {};
+  if (userId) headers["user-id"] = userId;
+  const res = await fetch(`${API_BASE}/loadversions?skillId=${skillId}`, {
+    method: "GET",
+    headers,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to load versions");
+  }
+  const data = await res.json();
+  const versions = Array.isArray(data.versions) ? data.versions : [];
+  return versions.map((v: any) => ({
+    version: v.version,
+    createdAt: v.createdAt ?? v.created_at ?? "",
+    name: v.name,
+    description: v.description,
+    message: v.message,
+  })) as SkillVersionSummary[];
+}
+
+export async function showSkillVersion(skillId: number, version: number): Promise<SkillVersionDetail> {
+  const userId = localStorage.getItem("userId");
+  const headers: Record<string, string> = {};
+  if (userId) headers["user-id"] = userId;
+  const res = await fetch(`${API_BASE}/showversion?skillId=${skillId}&version=${version}`, {
+    method: "GET",
+    headers,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to load version");
+  }
+  const data = await res.json();
+  return {
+    version: data.version,
+    createdAt: data.createdAt ?? data.created_at ?? "",
+    name: data.name,
+    description: data.description,
+    content: data.content ?? "",
+    markdown: data.markdown ?? "",
+    allowedTools: parseAllowedTools(data.allowedTools ?? data.allowed_tools),
+    message: data.message,
+  };
+}
+
+export async function pushSkillVersion(
+  skillId: number,
+  markdown: string,
+  message: string
+): Promise<{ updatedAt?: string; version?: number }> {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+    throw new Error("Not logged in: missing userId");
+  }
+  const res = await fetch(`${API_BASE}/pushversion`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "user-id": userId,
+    },
+    body: JSON.stringify({ skillId, markdown, message }),
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to push version");
   }
   return res.json();
 }

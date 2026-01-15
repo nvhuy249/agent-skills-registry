@@ -21,7 +21,6 @@ export default function MySkills() {
     try {
       const data = await loadSkills();
       setSkills(data);
-      setTags(Array.from(new Set(data.flatMap((skill) => skill.tag_list ?? []))));
     } catch (err: any) {
       setError(err.message || "Failed to load skills");
     } finally {
@@ -32,6 +31,16 @@ export default function MySkills() {
   useEffect(() => {
     refreshSkills();
   }, [refreshSkills]);
+
+  useEffect(() => {
+    const nextTags = Array.from(new Set(skills.flatMap((skill) => skill.tag_list ?? [])));
+    setTags((prev) => {
+      if (prev.length === nextTags.length && prev.every((tag, idx) => tag === nextTags[idx])) {
+        return prev;
+      }
+      return nextTags;
+    });
+  }, [skills]);
 
   const skillsPrivate = skills.filter((skill) => !skill.is_public);
   const skillsPublic = skills.filter((skill) => skill.is_public);
@@ -209,6 +218,8 @@ export default function MySkills() {
               onSearchNameChange={setSearchNamePrivate}
               searchTag={searchTagPrivate}
               onSearchTagChange={setSearchTagPrivate}
+              tags={tags}
+              onTagSelect={setSearchTagPrivate}
             />
             <SkillsColumn
               title="Public Skills"
@@ -222,6 +233,8 @@ export default function MySkills() {
               onSearchNameChange={setSearchNamePublic}
               searchTag={searchTagPublic}
               onSearchTagChange={setSearchTagPublic}
+              tags={tags}
+              onTagSelect={setSearchTagPublic}
             />
           </>
         )}
@@ -242,6 +255,8 @@ type SkillsColumnProps = {
   onSearchNameChange: (value: string) => void;
   searchTag: string;
   onSearchTagChange: (value: string) => void;
+  tags?: string[];
+  onTagSelect?: (tag: string) => void;
 };
 
 function SkillsColumn({
@@ -256,6 +271,8 @@ function SkillsColumn({
   onSearchNameChange,
   searchTag,
   onSearchTagChange,
+  tags,
+  onTagSelect,
 }: SkillsColumnProps) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-sm shadow-slate-900/30">
@@ -299,6 +316,22 @@ function SkillsColumn({
             className="w-full max-w-45 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500"
           />
         </div>
+
+        {tags?.length ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span className="text-slate-500">Tags:</span>
+            {tags.slice(0, 10).map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => (onTagSelect ? onTagSelect(tag) : onSearchTagChange(tag))}
+                className="rounded-full border border-slate-700 px-2 py-1 text-slate-200 transition hover:border-indigo-400 hover:text-indigo-200"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         {skills.length === 0 ? (
           <p className="text-sm text-slate-400">No skills yet.</p>
