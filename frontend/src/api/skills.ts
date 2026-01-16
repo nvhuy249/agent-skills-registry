@@ -1,5 +1,23 @@
 const API_BASE = "http://localhost:3000/api/skills";
 
+function handleUnauthorized() {
+  localStorage.removeItem("userId");
+  localStorage.removeItem("username");
+  window.location.href = "/login";
+}
+
+async function ensureOk(res: Response, fallbackMessage: string) {
+  if (res.status === 401) {
+    handleUnauthorized();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || fallbackMessage);
+  }
+  return res;
+}
+
 export type Skill = {
   id: number;
   name: string;
@@ -54,20 +72,12 @@ function parseAllowedTools(raw: unknown): string[] {
 }
 
 export async function loadSkills(): Promise<Skill[]> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
-
   const res = await fetch(`${API_BASE}/loadskills`, {
     method: "GET",
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to load skills");
-  }
+  await ensureOk(res, "Failed to load skills");
 
   const data = await res.json();
   const skills = Array.isArray(data.skills) ? data.skills : [];
@@ -98,10 +108,7 @@ export async function loadPublicSkills(): Promise<Skill[]> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to load public skills");
-  }
+  await ensureOk(res, "Failed to load public skills");
 
   const data = await res.json();
   const skills = Array.isArray(data.skills) ? data.skills : [];
@@ -127,10 +134,6 @@ export async function loadPublicSkills(): Promise<Skill[]> {
 }
 
 export async function uploadSkill(markdown: string): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/uploadskill`, {
     method: "POST",
     headers: {
@@ -140,17 +143,10 @@ export async function uploadSkill(markdown: string): Promise<void> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to upload skill");
-  }
+  await ensureOk(res, "Failed to upload skill");
 }
 
 export async function deleteSkill(skillId: number): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/deleteskill`, {
     method: "DELETE",
     headers: {
@@ -160,26 +156,16 @@ export async function deleteSkill(skillId: number): Promise<void> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to delete skill");
-  }
+  await ensureOk(res, "Failed to delete skill");
 }
 
 export async function showSkill(skillId: number): Promise<SkillDetail> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/showskill?skillId=${skillId}`, {
     method: "GET",
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to show skill");
-  }
+  await ensureOk(res, "Failed to show skill");
   const data = await res.json();
   return {
     id: skillId,
@@ -201,10 +187,7 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
     method: "GET",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to show public skill");
-  }
+  await ensureOk(res, "Failed to show public skill");
   const data = await res.json();
   return {
     id: skillId,
@@ -222,10 +205,6 @@ export async function showPublicSkill(skillId: number): Promise<SkillDetail> {
 }
 
 export async function editSkill(skillId: number, markdown: string): Promise<{ updatedAt?: string }> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/editskill`, {
     method: "POST",
     headers: {
@@ -234,10 +213,7 @@ export async function editSkill(skillId: number, markdown: string): Promise<{ up
     body: JSON.stringify({ skillId, markdown }),
     credentials: "include",
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to edit skill");
-  }
+  await ensureOk(res, "Failed to edit skill");
   return res.json();
 }
 
@@ -246,10 +222,7 @@ export async function loadSkillVersions(skillId: number): Promise<SkillVersionSu
     method: "GET",
     credentials: "include",
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to load versions");
-  }
+  await ensureOk(res, "Failed to load versions");
   const data = await res.json();
   const versions = Array.isArray(data.versions) ? data.versions : [];
   return versions.map((v: any) => ({
@@ -266,10 +239,7 @@ export async function showSkillVersion(skillId: number, version: number): Promis
     method: "GET",
     credentials: "include",
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to load version");
-  }
+  await ensureOk(res, "Failed to load version");
   const data = await res.json();
   return {
     version: data.version,
@@ -288,10 +258,6 @@ export async function pushSkillVersion(
   markdown: string,
   message: string
 ): Promise<{ updatedAt?: string; version?: number }> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/pushversion`, {
     method: "POST",
     headers: {
@@ -300,18 +266,11 @@ export async function pushSkillVersion(
     body: JSON.stringify({ skillId, markdown, message }),
     credentials: "include",
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to push version");
-  }
+  await ensureOk(res, "Failed to push version");
   return res.json();
 }
 
 export async function changePrivacy(skillId: number, is_public: boolean): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/changeprivacy`, {
     method: "POST",
     headers: {
@@ -321,10 +280,7 @@ export async function changePrivacy(skillId: number, is_public: boolean): Promis
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to change privacy");
-  }
+  await ensureOk(res, "Failed to change privacy");
 }
 
 export async function downloadPublicSkill(skillId: number): Promise<{ markdown: string; name?: string }> {
@@ -332,20 +288,13 @@ export async function downloadPublicSkill(skillId: number): Promise<{ markdown: 
     method: "GET",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to download skill");
-  }
+  await ensureOk(res, "Failed to download skill");
 
   const markdown = await res.text();
   return { markdown };
 }
 
 export async function clonePublicSkill(skillId: number): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/clonepublicskill`, {
     method: "POST",
     headers: {
@@ -355,17 +304,10 @@ export async function clonePublicSkill(skillId: number): Promise<void> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to clone skill");
-  }
+  await ensureOk(res, "Failed to clone skill");
 }
 
 export async function addTag(skillId: number, tagName: string): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/addtag`, {
     method: "POST",
     headers: {
@@ -375,17 +317,10 @@ export async function addTag(skillId: number, tagName: string): Promise<void> {
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to add tag");
-  }
+  await ensureOk(res, "Failed to add tag");
 }
 
 export async function removeTag(skillId: number, tagName: string): Promise<void> {
-  const userId = localStorage.getItem("userId");
-  if (!userId) {
-    throw new Error("Not logged in: missing userId");
-  }
   const res = await fetch(`${API_BASE}/removetag`, {
     method: "POST",
     headers: {
@@ -395,10 +330,7 @@ export async function removeTag(skillId: number, tagName: string): Promise<void>
     credentials: "include",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to remove tag");
-  }
+  await ensureOk(res, "Failed to remove tag");
 }
 
 export async function searchbytag(tagName: string): Promise<Skill[]> {
@@ -406,10 +338,7 @@ export async function searchbytag(tagName: string): Promise<Skill[]> {
     method: "GET",
   });
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || "Failed to search skills by tag");
-  }
+  await ensureOk(res, "Failed to search skills by tag");
 
   const data = await res.json();
   const skills = Array.isArray(data.skills) ? data.skills : [];

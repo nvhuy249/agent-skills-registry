@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+﻿import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadPublicSkills, downloadPublicSkill, clonePublicSkill, searchbytag, type Skill } from "../api/skills";
 import PublicSkillCard from "../components/PublicSkillCard";
@@ -71,30 +71,6 @@ export default function PublicSkills() {
   const currentPage = Math.min(page, totalPages);
   const start = (currentPage - 1) * pageSize;
   const visible = filtered.slice(start, start + pageSize);
-
-  const searchTagResults = useCallback(() => {
-    const tag = searchTag.trim().toLowerCase();
-    setError(null);
-
-    if (!tag) {
-      setLoading(true);
-      refresh().finally(() => setLoading(false));
-      return () => {};
-    }
-
-    setLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const data = await searchbytag(tag);
-        setSkills(data);
-      } catch (err: any) {
-        setError(err.message || "Failed to load public skills by tag");
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchTag, refresh]);
 
   useEffect(() => {
     const tag = searchTag.trim().toLowerCase();
@@ -210,8 +186,8 @@ export default function PublicSkills() {
             className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500"
           >
             <option value="recent">Most Recently Updated</option>
-            <option value="name-asc">Name A→Z</option>
-            <option value="name-desc">Name Z→A</option>
+            <option value="name-asc">Name A-Z</option>
+            <option value="name-desc">Name Z-A</option>
           </select>
           <select
             value={filter}
@@ -294,9 +270,6 @@ export default function PublicSkills() {
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
-            <span>
-              Page {currentPage} of {totalPages} • {filtered.length} result{filtered.length === 1 ? "" : "s"}
-            </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -315,9 +288,26 @@ export default function PublicSkills() {
                 Next
               </button>
             </div>
+            <span>
+              Page {currentPage} of {totalPages} • {filtered.length} result{filtered.length === 1 ? "" : "s"}
+            </span>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

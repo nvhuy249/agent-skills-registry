@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+﻿import { useRef, useState, useEffect, useCallback } from "react";
 import SkillCard, { type Skill } from "../components/SkillCard";
 import { useNavigate } from "react-router-dom";
 import { loadSkills, uploadSkill, deleteSkill, changePrivacy, addTag } from "../api/skills";
@@ -15,6 +15,8 @@ export default function MySkills() {
   const [searchTagPrivate, setSearchTagPrivate] = useState("");
   const [searchNamePublic, setSearchNamePublic] = useState("");
   const [searchTagPublic, setSearchTagPublic] = useState("");
+  const [sortPrivate, setSortPrivate] = useState<"recent" | "name-asc" | "name-desc">("recent");
+  const [sortPublic, setSortPublic] = useState<"recent" | "name-asc" | "name-desc">("recent");
 
   const refreshSkills = useCallback(async () => {
     const showSpinner = skills.length === 0;
@@ -57,8 +59,23 @@ export default function MySkills() {
     return list.filter((s) => (s.tag_list ?? []).some((t) => t.toLowerCase().includes(term)));
   };
 
-  const filteredPrivate = filterByTag(filterByName(skillsPrivate, searchNamePrivate), searchTagPrivate);
-  const filteredPublic = filterByTag(filterByName(skillsPublic, searchNamePublic), searchTagPublic);
+  const sortSkills = useCallback((list: Skill[], sort: "recent" | "name-asc" | "name-desc") => {
+    const copy = [...list];
+    if (sort === "name-asc") return copy.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "name-desc") return copy.sort((a, b) => b.name.localeCompare(a.name));
+    return copy.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+  }, []);
+
+  const filteredPrivate = sortSkills(
+    filterByTag(filterByName(skillsPrivate, searchNamePrivate), searchTagPrivate),
+    sortPrivate
+  );
+  const filteredPublic = sortSkills(
+    filterByTag(filterByName(skillsPublic, searchNamePublic), searchTagPublic),
+    sortPublic
+  );
 
   const username = localStorage.getItem("username");
 
@@ -220,6 +237,8 @@ export default function MySkills() {
               onSearchNameChange={setSearchNamePrivate}
               searchTag={searchTagPrivate}
               onSearchTagChange={setSearchTagPrivate}
+              sortBy={sortPrivate}
+              onSortChange={setSortPrivate}
               tags={tags}
               onTagSelect={setSearchTagPrivate}
             />
@@ -235,6 +254,8 @@ export default function MySkills() {
               onSearchNameChange={setSearchNamePublic}
               searchTag={searchTagPublic}
               onSearchTagChange={setSearchTagPublic}
+              sortBy={sortPublic}
+              onSortChange={setSortPublic}
               tags={tags}
               onTagSelect={setSearchTagPublic}
             />
@@ -257,6 +278,8 @@ type SkillsColumnProps = {
   onSearchNameChange: (value: string) => void;
   searchTag: string;
   onSearchTagChange: (value: string) => void;
+  sortBy: "recent" | "name-asc" | "name-desc";
+  onSortChange: (value: "recent" | "name-asc" | "name-desc") => void;
   tags?: string[];
   onTagSelect?: (tag: string) => void;
 };
@@ -273,6 +296,8 @@ function SkillsColumn({
   onSearchNameChange,
   searchTag,
   onSearchTagChange,
+  sortBy,
+  onSortChange,
   tags,
   onTagSelect,
 }: SkillsColumnProps) {
@@ -283,22 +308,15 @@ function SkillsColumn({
           <h2 className="text-xl font-semibold text-white">{title}</h2>
           <p className="text-sm text-slate-400">{subtitle}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-indigo-400 hover:text-indigo-200"
-            onClick={() => console.log("Filter", title)}
-          >
-            Filter
-          </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-indigo-400 hover:text-indigo-200"
-            onClick={() => console.log("Sort", title)}
-          >
-            Sort
-          </button>
-        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value as typeof sortBy)}
+          className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:border-indigo-400 hover:text-indigo-200"
+        >
+          <option value="recent">Most Recently Updated</option>
+          <option value="name-asc">Name A-Z</option>
+          <option value="name-desc">Name Z-A</option>
+        </select>
       </div>
 
       <div className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1">
@@ -353,3 +371,4 @@ function SkillsColumn({
     </div>
   );
 }
+
