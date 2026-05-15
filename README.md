@@ -1,65 +1,209 @@
 # Agent Skills Registry
 
-Prototype web app for uploading, managing, and sharing agent skill markdown files. Skills are parsed for frontmatter metadata, stored in SQLite, and exposed via a React SPA backed by an Express/TypeScript API.
+Agent Skills Registry is a full-stack web app for storing, versioning, and sharing reusable AI agent skill files. Users can upload Markdown-based skills with frontmatter metadata, keep private drafts, publish selected skills to a public directory, and clone shared skills into their own library.
 
-## What's implemented vs brief
-- Accounts: signup/login with bcrypt-hashed passwords; auth via HttpOnly SameSite=Lax JWT cookie (username/userId still cached locally for UI).
-- Skill CRUD: upload markdown (name/description pulled from frontmatter), edit, delete; private by default with public toggle; view my skills and public directory.
-- Tagging: add/remove tags to skills; search/filter by name and tag; quick tag chips on both My Skills and Public Skills.
-- Sharing: public skills list/search, download as markdown, clone to your library (with source attribution).
-- Versioning: push versions with messages, list history, and view snapshots (no diff UI).
-- Nice-to-have covered: download counts, version history, cloning. Nice-to-have not covered: GitHub-style diff view.
+The project is built as a practical registry for structured agent capabilities, with a React single-page app, an Express API, cookie-based authentication, and SQLite persistence.
 
-## Stack
-- Frontend: React + TypeScript (Vite), Tailwind utility classes, React Router.
-- Backend: Express + TypeScript, better-sqlite3, gray-matter for frontmatter parsing.
-- Data: SQLite at `backend/db/database.sqlite` (created on first run).
+## Why I Built This
 
-## Running locally
-Prereqs: Node 18+ and npm.
+AI agent workflows increasingly depend on reusable instructions, tool permissions, and repeatable operating patterns. This app explores what a lightweight skill registry could look like: part personal library, part public directory, and part versioned content manager.
 
-1) Set JWT secret (PowerShell, from repo root)
+For my portfolio, this project demonstrates my ability to ship a working full-stack TypeScript application with authentication, relational data modelling, file parsing, CRUD workflows, version history, and a polished frontend user experience.
+
+## Features
+
+- User accounts with signup and login.
+- Password hashing with bcrypt.
+- JWT authentication stored in an HttpOnly SameSite cookie.
+- Upload Markdown skill files with parsed frontmatter metadata.
+- Store skill name, description, content, allowed tools, tags, privacy, ownership, and download counts.
+- Private personal skill library.
+- Public skill directory with browsing, searching, and tag filtering.
+- Edit existing skills and update parsed metadata.
+- Publish or unpublish skills.
+- Add and remove tags.
+- Download public skills as Markdown.
+- Clone public skills into a user's own library with source attribution.
+- Push named versions and browse version history.
+- View previous version snapshots.
+
+## Tech Stack
+
+### Frontend
+
+- React 19
+- TypeScript
+- Vite
+- React Router
+- Tailwind CSS utilities
+- Lucide React icons
+
+### Backend
+
+- Node.js
+- Express
+- TypeScript
+- SQLite via `better-sqlite3`
+- `gray-matter` for Markdown frontmatter parsing
+- `bcrypt` for password hashing
+- `jsonwebtoken` with cookie-based auth
+
+## Architecture
+
+```text
+agent-skills-registry/
+|-- backend/
+|   |-- src/
+|   |   |-- middleware/      # Auth middleware
+|   |   |-- routes/          # Auth and skill API routes
+|   |   |-- db.ts            # SQLite connection
+|   |   |-- schema.ts        # Table setup
+|   |   `-- server.ts        # Express server
+|   `-- db/                  # Local SQLite database
+|-- frontend/
+|   `-- src/
+|       |-- api/             # API client helpers
+|       |-- components/      # Shared UI components
+|       |-- pages/           # Route-level views
+|       `-- router.tsx       # Client routes
+`-- package.json             # Combined dev runner
+```
+
+The backend exposes a JSON API and persists data in SQLite. The frontend consumes that API from a Vite React app. Authentication is handled server-side through signed JWT cookies, while the frontend keeps only lightweight UI state.
+
+## Data Model
+
+The SQLite schema includes:
+
+- `users` for accounts and password hashes.
+- `skills` for current skill records.
+- `tags` for reusable tag names.
+- `skill_tags` as the many-to-many relationship between skills and tags.
+- `skill_versions` for version snapshots with messages.
+
+This gives the app enough structure to support ownership, public/private visibility, search by tags, version history, cloning, and download analytics.
+
+## Running Locally
+
+Prerequisites:
+
+- Node.js 20.19+ or 22.12+
+- npm
+
+Create a backend environment file:
+
 ```pwsh
 $secret = [Guid]::NewGuid().ToString() + [Guid]::NewGuid().ToString()
 "JWT_SECRET=$secret" | Set-Content -Encoding UTF8 backend/.env
 ```
-   - Or edit `backend/.env` manually using the template in `backend/.env.example`.
 
-2) Install deps
+Alternatively, copy `backend/.env.example` to `backend/.env` and set your own `JWT_SECRET`.
+
+Install dependencies:
+
 ```sh
-npm install                # root (installs npm-run-all)
+npm install
 npm install --prefix backend
 npm install --prefix frontend
 ```
-3) Start dev servers (root)
+
+Start both development servers:
+
 ```sh
 npm run dev
 ```
-   - Backend: http://localhost:3000  
-   - Frontend: http://localhost:5173
 
-To reset data, stop servers and delete `backend/db/database.sqlite`.
+Local URLs:
 
-## Usage notes
-- Sign up or log in from the landing page; credentials are local to this app.
-- Upload `.md` with frontmatter `name` (required) and `description`/`allowed_tools` (optional).
-- Manage privacy, add tags, edit content, and push versions from My Skills. Public Skills lets you search, view, download, and clone.
-- When cloning, tags are copied and the source user is recorded.
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:3000`
 
-## Download counts
-- Stored on `skills.download_count` in SQLite (`backend/src/schema.ts`).
-- Incremented in `backend/src/routes/skills.ts` inside `GET /api/skills/downloadskill` when a public skill is downloaded.
-- Displayed on public cards in `frontend/src/components/PublicSkillCard.tsx` (shows the current count next to the download badge).
+To reset local data, stop the servers and delete `backend/db/database.sqlite`. The schema is recreated automatically on the next backend start.
 
-## Project layout
-- `backend/` - Express API, SQLite schema/migrations-in-code, routes for auth/skills.
-- `frontend/` - React SPA pages/components and API client.
-- `package.json` (root) - combined dev runner (`npm run dev`).
+## Testing
 
-## Limitations / future work
-- No GitHub-style diff UI between versions (explicitly omitted for time).
-- Authentication now uses HttpOnly SameSite=Lax JWT cookies, but still minimal (dev secret fallback, no rate limiting or rigorous validation). Next: set a real `JWT_SECRET`, add validation and light throttling, and tighten error handling.
-- No Docker packaging. With more time: add backend `Dockerfile` (Node build + `node dist/server.js`), frontend `Dockerfile` (build then serve `dist` via nginx/caddy), and a root `docker-compose.yml` wiring ports and a volume for `backend/db/database.sqlite`; update frontend to read `VITE_API_BASE` for container networking.
-- Filtering/sorting/search: currently client-side (name/tag). Move queries to the backend with pagination to better handle larger datasets; expose query params for name, tag, sort, page/size. Apply same treatment for My Skills tag search.
-- Versioning UX: "Save" updates the current skill; "Push version" acts as a checkpoint and records history. Consider auto-creating a version on every save or prompting for a message to avoid silent edits.
-- "Revert to this version" is not built; can reuse `showversion` + `pushversion` to write the snapshot back as a new version and update the skill.
+Run the backend smoke test and frontend production build from the repository root:
+
+```sh
+npm test
+```
+
+The backend smoke test starts the compiled API on a random local port with an isolated temporary SQLite database. It covers signup, auth-required routes, skill upload, public/private visibility, tags, downloading, version history, and cloning.
+
+## Example Skill Format
+
+Skills are uploaded as Markdown files with YAML frontmatter:
+
+```md
+---
+name: Code Review Assistant
+description: Reviews pull requests for correctness, maintainability, and test coverage.
+allowed_tools:
+  - github
+  - shell
+---
+
+Review the code changes carefully. Prioritize correctness, security, regression risk, and missing tests.
+```
+
+The app parses the frontmatter into structured fields while storing the Markdown body as the skill content.
+
+## API Overview
+
+Main backend routes include:
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/skills/loadskills`
+- `POST /api/skills/uploadskill`
+- `POST /api/skills/editskill`
+- `DELETE /api/skills/deleteskill`
+- `POST /api/skills/changeprivacy`
+- `GET /api/skills/publicskills`
+- `GET /api/skills/showpublicskill`
+- `GET /api/skills/downloadskill`
+- `POST /api/skills/clonepublicskill`
+- `POST /api/skills/addtag`
+- `POST /api/skills/removetag`
+- `GET /api/skills/loadversions`
+- `POST /api/skills/pushversion`
+- `GET /api/skills/showversion`
+
+## What This Demonstrates
+
+- Full-stack TypeScript development across React and Express.
+- Practical authentication with hashed passwords and HttpOnly cookies.
+- Relational schema design for users, resources, tags, and version history.
+- Markdown and YAML frontmatter parsing.
+- Ownership and authorization checks for private data.
+- Public/private publishing workflows.
+- Reusable API client structure on the frontend.
+- React routing and protected routes.
+- Stateful UI for editing, filtering, cloning, downloading, and version browsing.
+- Local-first development with SQLite.
+- Smoke testing of core backend workflows with Node's built-in test runner.
+
+## Current Limitations
+
+- Search and filtering are mostly client-side and should move to backend query parameters with pagination for larger datasets.
+- Version history supports snapshots, but not visual diffs.
+- There is no revert workflow yet, although the existing version snapshot endpoint provides most of the data needed.
+- Authentication is suitable for local/demo use, but production hardening would need rate limiting, stronger validation, secure deployment configuration, and more defensive error handling.
+- The app is not containerized yet.
+
+## Future Improvements
+
+- Add GitHub-style diffs between skill versions.
+- Add "revert to version" as a first-class action.
+- Add backend pagination, sorting, and search.
+- Expand automated tests across edge cases, validation, and frontend behavior.
+- Add Docker support for local and deployed environments.
+- Add richer skill analytics such as clone counts and recent activity.
+- Add profile pages for public skill authors.
+
+## Repository Notes
+
+This repository is intended to be easy to run locally and inspect as a portfolio project. It is not deployed as a hosted production service.
+
+Before publishing a fork or copy publicly, avoid committing local runtime data such as `backend/.env` or `backend/db/database.sqlite`.

@@ -1,3 +1,8 @@
 node_modules/
 .env
+backend/dist/
 backend/.env
+backend/db/*.sqlite
+backend/db/*.sqlite-*
+backend/.tmp-test/
+frontend/dist/

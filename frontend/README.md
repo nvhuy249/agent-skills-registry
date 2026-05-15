@@ -1,73 +1,66 @@
-# React + TypeScript + Vite
+# Agent Skills Registry Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React frontend for Agent Skills Registry. It provides the browser interface for account auth, personal skill management, public skill discovery, Markdown editing, tagging, cloning, downloads, and version browsing.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React
+- TypeScript
+- Vite
+- React Router
+- Tailwind CSS utilities
+- Lucide React icons
 
-## React Compiler
+## Local Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+From the repository root, install all dependencies and run both services:
 
-## Expanding the ESLint configuration
+Prerequisite: Node.js 20.19+ or 22.12+.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm install
+npm install --prefix backend
+npm install --prefix frontend
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Frontend only:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm install
+npm run dev
 ```
+
+The frontend runs at `http://localhost:5173` and expects the backend API at `http://localhost:3000`.
+
+## Structure
+
+```text
+frontend/src/
+|-- api/             # Fetch wrappers for auth and skill routes
+|-- components/      # Reusable UI components
+|-- pages/           # Route-level screens
+|-- App.tsx          # App shell
+|-- AppAuth.tsx      # Auth state wrapper
+|-- main.tsx         # React entry point
+`-- router.tsx       # Route definitions
+```
+
+## Main Screens
+
+- Login/signup landing flow.
+- My Skills dashboard for private and owned skills.
+- Public Skills directory for browsing shared skills.
+- Skill viewer for public and owned skill details.
+- Skill editor with Markdown/frontmatter editing.
+- Version history view for pushed skill snapshots.
+
+## Build
+
+```sh
+npm run build
+```
+
+## Notes
+
+This frontend is designed for local/demo use. For deployment, the API base URL should be made configurable rather than assuming the local backend port.
