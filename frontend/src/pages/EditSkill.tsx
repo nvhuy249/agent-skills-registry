@@ -199,7 +199,7 @@ export default function EditSkill() {
     localStorage.removeItem(draftKey(skillId));
     setDraftLoaded(false);
     setStatus("idle");
-  }; // NOT WORKING RIGHT NOW
+  };
   
   const onPrivacyChange = () => {
     const privacyAction = is_public ? "private" : "public";

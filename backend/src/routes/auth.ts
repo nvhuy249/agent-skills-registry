@@ -5,6 +5,12 @@ import db from "../db";
 import { JWT_SECRET } from "../middleware/auth";
 
 const router = Router();
+const isProduction = process.env.NODE_ENV === "production";
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: isProduction,
+};
 
 type DbUser = {
   id: number;
@@ -30,9 +36,7 @@ router.post("/signup", async (req, res) => {
 
   const token = jwt.sign({ userId, username }, JWT_SECRET, { expiresIn: "7d" });
   res.cookie("auth", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    ...authCookieOptions,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
@@ -55,9 +59,7 @@ router.post("/login", async (req, res) => {
   }
   const token = jwt.sign({ userId: user.id, username }, JWT_SECRET, { expiresIn: "7d" });
   res.cookie("auth", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
+    ...authCookieOptions,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
   return res.status(200).json({ message: "Login successful", userId: user.id });
@@ -65,10 +67,7 @@ router.post("/login", async (req, res) => {
 
 // User logout
 router.post("/logout", (_req, res) => {
-  res.clearCookie("auth", {
-    sameSite: "lax",
-    secure: false,
-  });
+  res.clearCookie("auth", authCookieOptions);
   return res.status(200).json({ message: "Logged out" });
 });
 

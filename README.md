@@ -4,11 +4,15 @@ Agent Skills Registry is a full-stack web app for storing, versioning, and shari
 
 The project is built as a practical registry for structured agent capabilities, with a React single-page app, an Express API, cookie-based authentication, and SQLite persistence.
 
+I intentionally kept the stack close to the underlying pieces instead of using a full-stack meta-framework. The frontend, backend API, authentication, CORS, cookies, database schema, and client-side API calls are wired explicitly so the connections between the browser, server, and persistence layer are visible in the code.
+
 ## Why I Built This
 
 AI agent workflows increasingly depend on reusable instructions, tool permissions, and repeatable operating patterns. This app explores what a lightweight skill registry could look like: part personal library, part public directory, and part versioned content manager.
 
 For my portfolio, this project demonstrates my ability to ship a working full-stack TypeScript application with authentication, relational data modelling, file parsing, CRUD workflows, version history, and a polished frontend user experience.
+
+It also reflects a deliberate learning goal: building the system with lightweight framework layers rather than relying on a highly abstracted application framework, so I could show practical understanding of how the tech stack fits together end to end.
 
 ## Features
 
@@ -94,10 +98,21 @@ Create a backend environment file:
 
 ```pwsh
 $secret = [Guid]::NewGuid().ToString() + [Guid]::NewGuid().ToString()
-"JWT_SECRET=$secret" | Set-Content -Encoding UTF8 backend/.env
+@"
+JWT_SECRET=$secret
+CLIENT_ORIGIN=http://localhost:5173
+"@ | Set-Content -Encoding UTF8 backend/.env
 ```
 
 Alternatively, copy `backend/.env.example` to `backend/.env` and set your own `JWT_SECRET`.
+
+Optional frontend environment:
+
+```sh
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+The frontend falls back to `http://localhost:3000` when `VITE_API_BASE_URL` is not set.
 
 Install dependencies:
 
@@ -173,6 +188,8 @@ Main backend routes include:
 ## What This Demonstrates
 
 - Full-stack TypeScript development across React and Express.
+- Understanding of the boundaries between frontend state, HTTP API design, auth cookies, CORS, server routes, and database persistence.
+- Deliberate use of lightweight framework layers rather than a full-stack meta-framework, keeping the application flow easy to inspect.
 - Practical authentication with hashed passwords and HttpOnly cookies.
 - Relational schema design for users, resources, tags, and version history.
 - Markdown and YAML frontmatter parsing.
@@ -190,6 +207,7 @@ Main backend routes include:
 - Version history supports snapshots, but not visual diffs.
 - There is no revert workflow yet, although the existing version snapshot endpoint provides most of the data needed.
 - Authentication is suitable for local/demo use, but production hardening would need rate limiting, stronger validation, secure deployment configuration, and more defensive error handling.
+- Production deployments must set `JWT_SECRET`, `CLIENT_ORIGIN`, and `VITE_API_BASE_URL` for the deployed domains.
 - The app is not containerized yet.
 
 ## Future Improvements

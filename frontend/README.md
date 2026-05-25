@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-The frontend runs at `http://localhost:5173` and expects the backend API at `http://localhost:3000`.
+The frontend runs at `http://localhost:5173` and uses `VITE_API_BASE_URL` for the backend origin. If the variable is not set, it falls back to `http://localhost:3000`.
 
 ## Structure
 

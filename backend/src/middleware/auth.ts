@@ -2,7 +2,13 @@ import "dotenv/config";
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
-export const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+const fallbackJwtSecret = "dev-secret-change-before-production";
+
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be set in production");
+}
+
+export const JWT_SECRET = process.env.JWT_SECRET || fallbackJwtSecret;
 
 type AuthPayload = {
   userId: number;

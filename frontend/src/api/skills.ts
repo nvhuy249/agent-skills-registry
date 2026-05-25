@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:3000/api/skills";
+const API_ROOT = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const API_BASE = `${API_ROOT}/api/skills`;
 
 function handleUnauthorized() {
   localStorage.removeItem("userId");
